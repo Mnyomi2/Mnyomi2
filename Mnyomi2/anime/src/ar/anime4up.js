@@ -68,7 +68,7 @@ class DefaultExtension extends MProvider {
         if (q.includes("fhd") || q.includes("1080")) return "1080p";
         if (q.includes("hd") || q.includes("720")) return "720p";
         if (q.includes("sd") || q.includes("480")) return "480p";
-        return "Auto";
+        return "1080";
     }
 
     // --- CORE METHODS ---
