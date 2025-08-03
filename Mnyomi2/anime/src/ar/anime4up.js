@@ -209,7 +209,7 @@ class DefaultExtension extends MProvider {
             } catch (e) { /* Ignore errors from single hoster */ }
         }
 
-        const preferredQuality = this.getPreference("preferred_quality") || "720";
+        const preferredQuality = this.getPreference("preferred_quality") || "1080";
         videos.sort((a, b) => {
             const qualityA = parseInt(a.quality.match(/(\d+)p/)?.[1] || 0);
             const qualityB = parseInt(b.quality.match(/(\d+)p/)?.[1] || 0);
