@@ -7,7 +7,6 @@ const mangayomiSources = [{
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=ww.anime4up.rest",
     "typeSource": "single",
     "itemType": 1,
-    // Version increased to reflect the filter pagination fix
     "version": "1.5.5",
     "pkgPath": "anime/src/ar/anime4up.js"
 }];
