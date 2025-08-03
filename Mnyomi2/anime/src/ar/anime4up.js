@@ -68,7 +68,7 @@ class DefaultExtension extends MProvider {
         if (q.includes("fhd") || q.includes("1080")) return "1080p";
         if (q.includes("hd") || q.includes("720")) return "720p";
         if (q.includes("sd") || q.includes("480")) return "480p";
-        return "1080";
+        return "720";
     }
 
     // --- CORE METHODS ---
@@ -209,7 +209,7 @@ class DefaultExtension extends MProvider {
             } catch (e) { /* Ignore errors from single hoster */ }
         }
 
-        const preferredQuality = this.getPreference("preferred_quality") || "1080";
+        const preferredQuality = this.getPreference("preferred_quality") || "720";
         videos.sort((a, b) => {
             const qualityA = parseInt(a.quality.match(/(\d+)p/)?.[1] || 0);
             const qualityB = parseInt(b.quality.match(/(\d+)p/)?.[1] || 0);
