@@ -89,7 +89,7 @@ class DefaultExtension extends MProvider {
   }
 
   async search(query, page, filters) {
-    let slug = `/animes-list?search=${query}&page=${page}`;
+    let slug = `/search?query=${query}&page=${page}`;
 
     if (filters && filters.length > 0) {
         function getSelectValue(filter) { return filter.values[filter.state].value; }
