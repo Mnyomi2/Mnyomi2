@@ -1,0 +1,17 @@
+import '../../../../../model/source.dart';
+
+Source get animeonlineninjaSource => _animeonlineninjaSource;
+const _animeonlineninjaVersion = "0.0.35";
+const _animeonlineninjaSourceCodeUrl =
+    "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/AllInOne/dart/anime/src/es/animeonlineninja/animeonlineninja.dart";
+Source _animeonlineninjaSource = Source(
+  name: "AnimeOnline.Ninja",
+  baseUrl: "https://ww3.animeonline.ninja",
+  lang: "es",
+  typeSource: "single",
+  iconUrl:
+      "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/AllInOne/dart/anime/src/es/animeonlineninja/icon.png",
+  sourceCodeUrl: _animeonlineninjaSourceCodeUrl,
+  version: _animeonlineninjaVersion,
+  itemType: ItemType.anime,
+);
