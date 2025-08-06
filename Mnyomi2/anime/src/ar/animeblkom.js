@@ -24,7 +24,7 @@ class DefaultExtension extends MProvider {
   }
 
   getBaseUrl() {
-    return this.getPreference("animeblkom_base_url");
+    return this.getPreference("animeblkom_base_url") ?? "https://animeblkom.net";
   }
 
   getHeaders() {
@@ -37,7 +37,7 @@ class DefaultExtension extends MProvider {
   }
 
   async getPopular(page) {
-    const url = `${this.getBaseUrl()}/animes-list?page=${page}&sort_by=rate`;
+    const url = `${this.getBaseUrl()}/animes-list?sort_by=rate&page=${page}`;
     const doc = await this.requestDoc(url);
     const list = [];
     const items = doc.select("div.content div.content-inner");
@@ -63,7 +63,7 @@ class DefaultExtension extends MProvider {
   }
 
   async getLatestUpdates(page) {
-    const url = `${this.getBaseUrl()}/animes-list?page=${page}&sort_by=created_at`;
+    const url = `${this.getBaseUrl()}/animes-list?sort_by=created_at&page=${page}`;
     const doc = await this.requestDoc(url);
     const list = [];
     const items = doc.select("div.content div.content-inner");
@@ -89,7 +89,10 @@ class DefaultExtension extends MProvider {
   }
 
   async search(query, page, filters) {
-    let slug = `/search?query=${query}&page=${page}`;
+    const endpoint = query ? `/search?query=${encodeURIComponent(query)}` : '/animes-list';
+    let url = this.getBaseUrl() + endpoint;
+    const params = [];
+    params.push(`page=${page}`);
 
     if (filters && filters.length > 0) {
         function getSelectValue(filter) { return filter.values[filter.state].value; }
@@ -105,20 +108,23 @@ class DefaultExtension extends MProvider {
         const yearRange = getSelectValue(filters[7]);
         const episodesRange = getSelectValue(filters[8]);
         
-        if (sortBy) slug += `&sort_by=${sortBy}`;
-        if (sortDir) slug += `&sort_dir=${sortDir}`;
+        if (sortBy) params.push(`sort_by=${sortBy}`);
+        if (sortDir) params.push(`sort_dir=${sortDir}`);
         
-        if (statuses.length > 0) slug += `&status=${statuses.join('_')}`;
-        if (genres.length > 0) slug += `&genres=${genres.join('_')}`;
-        if (studios.length > 0) slug += `&studios=${studios.join('_')}`;
+        if (statuses.length > 0) params.push(`status=${statuses.join('_')}`);
+        if (genres.length > 0) params.push(`genres=${genres.join('_')}`);
+        if (studios.length > 0) params.push(`studios=${studios.join('_')}`);
 
-        if (ageRange) slug += `&age=${ageRange}`;
-        if (ratingRange) slug += `&rate=${ratingRange}`;
-        if (yearRange) slug += `&year=${yearRange}`;
-        if (episodesRange) slug += `&videos_count=${episodesRange}`;
+        if (ageRange) params.push(`age=${ageRange}`);
+        if (ratingRange) params.push(`rate=${ratingRange}`);
+        if (yearRange) params.push(`year=${yearRange}`);
+        if (episodesRange) params.push(`videos_count=${episodesRange}`);
     }
     
-    const url = this.getBaseUrl() + slug;
+    if (params.length > 0) {
+        url += (url.includes('?') ? '&' : '?') + params.join('&');
+    }
+    
     const doc = await this.requestDoc(url);
     const list = [];
     const items = doc.select("div.content div.content-inner");
@@ -271,7 +277,7 @@ class DefaultExtension extends MProvider {
       return [
           {
               key: "animeblkom_base_url",
-              editTextPreference: { title: "Override Base URL", summary: "Default: https://animeblkom.net", value: "https://animeblkom.net", dialogTitle: "Override Base URL", dialogMessage: "Enter the new Base URL for Animeblkom." }
+              editTextPreference: { title: "Override Base URL", summary: "For temporary changes.", defaultValue: "https://animeblkom.net", dialogTitle: "Override Base URL", dialogMessage: "Default: https://animeblkom.net" }
           },
           {
               key: "animeblkom_preferred_quality",
