@@ -7,7 +7,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=animerco.org",
     "typeSource": "single",
     "itemType": 1,
-    "version": "1.0.0",
+    "version": "1.0.0", // Final robust version for URL generation
     "pkgPath": "anime/src/ar/animerco.js"
 }];
 
@@ -39,19 +39,22 @@ class DefaultExtension extends MProvider {
     // --- CORE METHODS ---
 
     async getPopular(page) {
-        const url = `${this.getBaseUrl()}/animes/page/${page}/`;
+        const url = `${this.getBaseUrl()}/seasons/page/${page}/`;
         const res = await this.client.get(url, this.getHeaders(url));
-        const doc = new Document(res.body);
+        const doc = new Document(res.body, res.url);
 
         const list = [];
         const items = doc.select("div.box-5x1.media-block");
 
         for (const item of items) {
-            const linkElement = item.selectFirst("a.image");
-            const name = linkElement.attr("title");
-            const link = linkElement.attr("href").replace(this.getBaseUrl(), "");
-            const imageUrl = linkElement.attr("data-src");
-            list.push({ name, imageUrl, link });
+            const linkElement = item.selectFirst("div.info a");
+            const name = linkElement?.selectFirst("h3")?.text.trim();
+            const link = linkElement?.attr("href")?.replace(this.getBaseUrl(), "");
+            const imageUrl = item.selectFirst("a.image")?.attr("data-src");
+
+            if (name && link && imageUrl) {
+                list.push({ name, imageUrl, link });
+            }
         }
 
         const hasNextPage = doc.selectFirst("a.next.page-numbers") != null;
@@ -61,37 +64,59 @@ class DefaultExtension extends MProvider {
     async getLatestUpdates(page) {
         const url = `${this.getBaseUrl()}/episodes/page/${page}/`;
         const res = await this.client.get(url, this.getHeaders(url));
-        const doc = new Document(res.body);
+        const doc = new Document(res.body, res.url);
 
         const list = [];
-        const items = doc.select("div.media-block");
+        const items = doc.select("div.media-block, div.pinned-card");
 
         for (const item of items) {
-            const linkElement = item.selectFirst("a.image");
-            const name = linkElement.attr("title").replace(/ الحلقة \d+$/, "");
-            const link = linkElement.attr("href").replace(/\/episodes\/.*/, `/animes/${name.replace(/ /g, "-")}/`);
-            const imageUrl = linkElement.attr("data-src");
-            list.push({ name, imageUrl, link });
+            const name = item.selectFirst("div.info h3")?.text.trim();
+            const imageUrl = item.selectFirst("a.image")?.attr("data-src");
+            // The season text is in an h4 inside a link with class 'extra'
+            const seasonText = item.selectFirst("a.extra h4")?.text;
+
+            if (name && imageUrl && seasonText) {
+                // REWRITTEN: This logic is now the most reliable.
+                // 1. Generate a clean, predictable slug from the base name.
+                const baseSlug = name
+                    .toLowerCase()
+                    .replace(/[.'!,:]/g, '') // Remove common punctuation that can break URLs
+                    .replace(/ /g, '-');   // Replace spaces with hyphens
+
+                // 2. Extract the season number.
+                const seasonMatch = seasonText.match(/(\d+)/);
+                if (!seasonMatch) continue; // Skip if for some reason a season number isn't found
+                const seasonNumber = seasonMatch[1];
+                
+                // 3. Always construct the link with the -season-X suffix.
+                const finalSlug = `${baseSlug}-season-${seasonNumber}`;
+                const link = `/seasons/${finalSlug}/`;
+
+                list.push({ name, imageUrl, link });
+            }
         }
 
-        const hasNextPage = doc.selectFirst("a.next.page-numbers") != null;
+        const hasNextPage = doc.selectFirst("nav.pagination-page a:last-child svg") != null;
         return { list, hasNextPage };
     }
 
     async search(query, page, filters) {
         const url = `${this.getBaseUrl()}/page/${page}/?s=${encodeURIComponent(query)}`;
         const res = await this.client.get(url, this.getHeaders(url));
-        const doc = new Document(res.body);
+        const doc = new Document(res.body, res.url);
 
         const list = [];
         const items = doc.select("div.box-5x1.media-block");
 
         for (const item of items) {
-            const linkElement = item.selectFirst("a.image");
-            const name = linkElement.attr("title");
-            const link = linkElement.attr("href").replace(this.getBaseUrl(), "");
-            const imageUrl = linkElement.attr("data-src");
-            list.push({ name, imageUrl, link });
+            const linkElement = item.selectFirst("div.info a");
+            const name = linkElement?.selectFirst("h3")?.text.trim();
+            const link = linkElement?.attr("href")?.replace(this.getBaseUrl(), "");
+            const imageUrl = item.selectFirst("a.image")?.attr("data-src");
+
+            if (name && link && imageUrl) {
+                list.push({ name, imageUrl, link });
+            }
         }
 
         const hasNextPage = doc.selectFirst("a.next.page-numbers") != null;
@@ -99,12 +124,18 @@ class DefaultExtension extends MProvider {
     }
 
     async getDetail(url) {
-        const res = await this.client.get(this.getBaseUrl() + url, this.getHeaders(this.getBaseUrl() + url));
-        const doc = new Document(res.body);
+        const fullUrl = this.getBaseUrl() + url;
+        const res = await this.client.get(fullUrl, this.getHeaders(fullUrl));
+        const doc = new Document(res.body, res.url);
 
-        const name = doc.selectFirst("div.media-title h1")?.text ?? doc.selectFirst("a.poster").attr("title");
-        const imageUrl = doc.selectFirst("a.poster").attr("data-src");
+        let name = doc.selectFirst("div.media-title h1")?.text ?? doc.selectFirst("a.poster")?.attr("title");
         
+        if (name) {
+            name = name.replace(/\s+(season|الموسم)\s+\d+\s*$/i, '').trim();
+        }
+
+        const imageUrl = doc.selectFirst("a.poster")?.attr("data-src");
+
         let description = doc.selectFirst("div.media-story div.content p")?.text ?? "";
         const altTitle = doc.selectFirst("div.media-title > h3.alt-title")?.text;
         if (altTitle) {
@@ -112,20 +143,18 @@ class DefaultExtension extends MProvider {
         }
 
         const statusText = doc.select("ul.chapters-list a.se-title > span.badge").map(e => e.text);
-        let status;
-        if (statusText.every(s => s.includes("مكتمل"))) {
-            status = 1; // COMPLETED
-        } else if (statusText.some(s => s.includes("يعرض الأن"))) {
-            status = 0; // ONGOING
-        } else {
-            status = 5; // UNKNOWN
+        let status = 5;
+        if (statusText.length > 0) {
+            if (statusText.every(s => s.includes("مكتمل"))) {
+                status = 1;
+            } else if (statusText.some(s => s.includes("يعرض الأن"))) {
+                status = 0;
+            }
         }
 
         const genre = doc.select("div.genres a").map(e => e.text);
-
         const chapters = [];
-        const episodeElements = doc.select("ul.chapters-list li a:has(h3)");
-
+        
         if (doc.location.includes("/movies/")) {
             chapters.push({
                 name: "Movie",
@@ -133,57 +162,67 @@ class DefaultExtension extends MProvider {
                 scanlator: 1
             });
         } else {
-            for (const el of episodeElements) {
-                const seasonDocRes = await this.client.get(el.attr("abs:href"), this.getHeaders(el.attr("abs:href")));
-                const seasonDoc = new Document(seasonDocRes.body);
-                const seasonName = seasonDoc.selectFirst("div.media-title h1").text;
-                const seasonNum = parseInt(seasonName.split(" ").pop()) || 1;
+            const seasonElements = doc.select("div#seasons > div.se-c");
+            for (const seasonEl of seasonElements) {
+                const seasonName = seasonEl.selectFirst("a.se-q.button")?.text.trim();
+                if (!seasonName) continue;
 
-                const seasonEpisodes = seasonDoc.select("ul.chapters-list li a:has(h3)");
-                for (const ep of seasonEpisodes) {
-                    const epText = ep.selectFirst("h3").ownText;
-                    const epNum = parseFloat(`${seasonNum}.${epText.replace(/[^0-9]/g, '').padStart(3, '0')}`);
+                const seasonNumMatch = seasonName.match(/(\d+)/);
+                const seasonNum = seasonNumMatch ? parseInt(seasonNumMatch[1]) : 1;
+                
+                const episodeElements = seasonEl.select("ul.chapters-list li a:has(h3)");
+                for (const ep of episodeElements) {
+                    const epText = ep.selectFirst("h3")?.ownText;
+                    if (!epText) continue;
+
+                    const epNumMatch = epText.match(/(\d+)/);
+                    const epNum = epNumMatch ? parseInt(epNumMatch[1]) : 0;
+                    
+                    const scanlator = parseFloat(`${seasonNum}.${String(epNum).padStart(3, '0')}`);
+                    
                     chapters.push({
                         name: `${seasonName}: ${epText}`,
                         url: ep.attr("href").replace(this.getBaseUrl(), ""),
-                        scanlator: epNum
+                        scanlator: scanlator
                     });
                 }
             }
         }
+        
         chapters.sort((a, b) => b.scanlator - a.scanlator);
 
         return { name, imageUrl, description, link: url, status, genre, chapters };
     }
 
     async getVideoList(url) {
-        const res = await this.client.get(this.getBaseUrl() + url, this.getHeaders(this.getBaseUrl() + url));
-        const doc = new Document(res.body);
+        const fullUrl = this.getBaseUrl() + url;
+        const res = await this.client.get(fullUrl, this.getHeaders(fullUrl));
+        const doc = new Document(res.body, res.url);
         const players = doc.select("li.dooplay_player_option");
         const videos = [];
 
-        for (const player of players) {
+        const promises = players.map(player => {
             const postData = {
                 "action": "doo_player_ajax",
                 "post": player.attr("data-post"),
                 "nume": player.attr("data-nume"),
                 "type": player.attr("data-type")
             };
-            const playerRes = await this.client.post(`${this.getBaseUrl()}/wp-admin/admin-ajax.php`, postData, this.getHeaders(this.getBaseUrl() + url));
-            const embedUrl = JSON.parse(playerRes.body).embed_url.replace(/\\/g, "");
+            const serverName = player.selectFirst("span.title")?.text ?? "Unknown Server";
+            return this.client.post(`${this.getBaseUrl()}/wp-admin/admin-ajax.php`, postData, this.getHeaders(fullUrl))
+                .then(playerRes => ({ playerRes, serverName }));
+        });
 
-            if (embedUrl) {
-                const name = player.selectFirst("span.title").text.toLowerCase();
-                // Simplified extractor logic for demonstration
-                if (name.includes("dood")) {
-                    videos.push({ url: embedUrl, quality: "Doodstream", headers: this.getHeaders(embedUrl) });
-                } else if (name.includes("streamtape")) {
-                    videos.push({ url: embedUrl, quality: "StreamTape", headers: this.getHeaders(embedUrl) });
-                } else if (name.includes("mp4upload")) {
-                    videos.push({ url: embedUrl, quality: "Mp4upload", headers: this.getHeaders(embedUrl) });
-                } else if (name.includes("ok.ru")) {
-                    videos.push({ url: embedUrl, quality: "Okru", headers: this.getHeaders(embedUrl) });
+        const results = await Promise.all(promises);
+
+        for (const { playerRes, serverName } of results) {
+            try {
+                const embedUrl = JSON.parse(playerRes.body).embed_url.replace(/\\/g, "");
+                if (embedUrl) {
+                    videos.push({ url: embedUrl, quality: serverName, headers: this.getHeaders(embedUrl) });
                 }
+            } catch (e) {
+                console.error(`Failed to parse player response for ${serverName}: ${e}`);
             }
         }
         
@@ -191,8 +230,8 @@ class DefaultExtension extends MProvider {
         videos.sort((a, b) => {
             const aQuality = a.quality.toLowerCase();
             const bQuality = b.quality.toLowerCase();
-            if (aQuality.includes(quality)) return -1;
-            if (bQuality.includes(quality)) return 1;
+            if (aQuality.includes(quality.toLowerCase())) return -1;
+            if (bQuality.includes(quality.toLowerCase())) return 1;
             return 0;
         });
 
@@ -219,8 +258,8 @@ class DefaultExtension extends MProvider {
                 title: "Preferred quality",
                 summary: "Preferred quality for video streaming",
                 valueIndex: 0,
-                entries: ["1080p", "720p", "480p", "360p", "Doodstream", "StreamTape"],
-                entryValues: ["1080", "720", "480", "360", "Doodstream", "StreamTape"],
+                entries: ["1080p", "720p", "480p", "360p", "Doodstream", "StreamTape", "Mp4upload", "Okru"],
+                entryValues: ["1080", "720", "480", "360", "Doodstream", "StreamTape", "Mp4upload", "Okru"],
             }
         }];
     }
