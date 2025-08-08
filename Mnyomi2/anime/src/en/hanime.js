@@ -10,6 +10,7 @@ const mangayomiSources = [{
     "pkgPath": "anime/src/en/hanime.js"
 }];
 
+
 class DefaultExtension extends MProvider {
   constructor() {
     super();
@@ -53,62 +54,8 @@ class DefaultExtension extends MProvider {
     }
   }
 
-  async getPopular(page) {
-    // "Popular" is the search endpoint sorted by likes.
-    return await this.search("", page, [
-      null,
-      null,
-      { state: { index: 2, ascending: false } },
-    ]);
-  }
-
-  async getLatestUpdates(page) {
-    // "Latest" is the search endpoint sorted by creation date.
-    return this.search("", page, []);
-  }
-
-  async search(query, page, filters) {
-    function getCheckBox(state) {
-      if (!state) return [];
-      return state.filter((item) => item.state).map((item) => item.value);
-    }
-    
-    const isFiltersAvailable = !filters || filters.length != 0;
-
-    const tags = isFiltersAvailable ? getCheckBox(filters[0]?.state) : [];
-    const brands = isFiltersAvailable ? getCheckBox(filters[1]?.state) : [];
-    const sortState = isFiltersAvailable ? filters[2]?.state : null;
-
-    const sortables = [
-      { name: "Uploads", value: "created_at_unix" },
-      { name: "Views", value: "views" },
-      { name: "Likes", value: "likes" },
-      { name: "Release", value: "released_at_unix" },
-      { name: "Alphabetical", value: "title_sortable" },
-    ];
-    
-    let orderBy = "relevance";
-    let ordering = "desc";
-
-    if (sortState) {
-        orderBy = sortables[sortState.index].value;
-        ordering = sortState.ascending ? "asc" : "desc";
-    } else if (!query) {
-        orderBy = "created_at_unix"; // Default for latest
-    }
-    
+  async _executeSearch(payload) {
     const apiUrl = "https://search.htv-services.com/search";
-    const payload = {
-      search_text: query,
-      tags: tags,
-      tags_mode: "AND",
-      brands: brands,
-      blacklist: [],
-      order_by: orderBy,
-      ordering: ordering,
-      page: page - 1,
-    };
-
     const headers = { ...this.getHeaders(), "Content-Type": "application/json" };
     const res = await this.client.post(apiUrl, headers, payload);
     const searchResult = JSON.parse(res.body);
@@ -130,11 +77,65 @@ class DefaultExtension extends MProvider {
         }
       }
     } catch (e) {
-        // Fallback for empty or malformed hits
+      // Fallback for empty or malformed 'hits'
     }
-
-    const hasNextPage = page < searchResult.nbPages;
+    
+    const hasNextPage = (payload.page + 1) < searchResult.nbPages;
     return { list, hasNextPage };
+  }
+
+  async getPopular(page) {
+    const payload = {
+      search_text: "",
+      tags: [],
+      tags_mode: "AND",
+      brands: [],
+      blacklist: [],
+      order_by: "likes",
+      ordering: "desc",
+      page: page - 1,
+    };
+    return this._executeSearch(payload);
+  }
+
+  async getLatestUpdates(page) {
+    const payload = {
+      search_text: "",
+      tags: [],
+      tags_mode: "AND",
+      brands: [],
+      blacklist: [],
+      order_by: "created_at_unix",
+      ordering: "desc",
+      page: page - 1,
+    };
+    return this._executeSearch(payload);
+  }
+
+  async search(query, page, filters) {
+    const getCheckBoxValues = (state) => {
+      if (!state) return [];
+      return state.filter((item) => item.state).map((item) => item.value);
+    };
+    const getSelectValue = (filter, defaultValue) => {
+      if (!filter || typeof filter.state !== 'number') return defaultValue;
+      return filter.values[filter.state]?.value ?? defaultValue;
+    };
+
+    const isFiltersAvailable = filters && filters.length > 0;
+    
+    const payload = {
+      search_text: query,
+      tags: isFiltersAvailable ? getCheckBoxValues(filters[0]?.state) : [],
+      tags_mode: isFiltersAvailable ? getSelectValue(filters[3], "AND") : "AND",
+      brands: isFiltersAvailable ? getCheckBoxValues(filters[2]?.state) : [],
+      blacklist: isFiltersAvailable ? getCheckBoxValues(filters[1]?.state) : [],
+      order_by: isFiltersAvailable ? getSelectValue(filters[4], "likes") : (query ? "relevance" : "likes"),
+      ordering: isFiltersAvailable ? getSelectValue(filters[5], "desc") : "desc",
+      page: page - 1,
+    };
+    
+    return this._executeSearch(payload);
   }
 
   async getDetail(url) {
@@ -165,16 +166,16 @@ class DefaultExtension extends MProvider {
     const preferredQuality = this.getPreference("hanime_pref_quality") || "1080";
     
     streams.sort((a, b) => {
-        const qualityA = parseInt(a.quality.split(" - ")[1].replace('p', '')) || 0;
-        const qualityB = parseInt(b.quality.split(" - ")[1].replace('p', '')) || 0;
-        
-        const isAPreferred = a.quality.includes(preferredQuality);
-        const isBPreferred = b.quality.includes(preferredQuality);
-        
-        if (isAPreferred && !isBPreferred) return -1;
-        if (!isAPreferred && isBPreferred) return 1;
+      const qualityA = parseInt(a.quality.split(" - ")[1].replace('p', '')) || 0;
+      const qualityB = parseInt(b.quality.split(" - ")[1].replace('p', '')) || 0;
+      
+      const isAPreferred = a.quality.includes(preferredQuality);
+      const isBPreferred = b.quality.includes(preferredQuality);
+      
+      if (isAPreferred && !isBPreferred) return -1;
+      if (!isAPreferred && isBPreferred) return 1;
 
-        return qualityB - qualityA;
+      return qualityB - qualityA;
     });
 
     return streams;
@@ -204,30 +205,39 @@ class DefaultExtension extends MProvider {
   }
 
   getFilterList() {
-    const formateState = (type_name, items) => {
-      return items.map(item => ({ type_name, name: item, value: item }));
-    };
+    const f = (name, value) => ({ type_name: "SelectOption", name, value });
+    const g = (name, value) => ({ type_name: "CheckBox", name, value });
 
-    const tags = [ "3D", "Ahegao", "Anal", "Animation", "BDSM", "Big Tits", "Cosplay", "Creampie", "Dark Skin", "Elf", "Futanari", "Gender Bender", "Handjob", "Harem", "Incest", "Inflation", "Loli", "Maid", "Milf", "Mind Break", "Mind Control", "Monster", "NTR", "Nakadashi", "No Penetration", "Oppai", "POV", "Pregnant", "Rape", "Reverse Rape", "Rimjob", "Schoolgirl", "Shota", "Stockings", "Succubus", "Tentacles", "Threesome", "Toy", "Trap", "Tsundere", "Ugly Bastard", "Vanilla", "X-Ray", "Yaoi", "Yuri" ];
-    const brands = [ "37c-Binetsu", "Anime-Koubou-Ram", "Antechinus", "BOMB! CUTE! BOMB!", "Bootleg", "BreakBottle", "Bunnywalker", "Digital-Works", "EDGE", "First-Star", "Front-Line", "G-Collections", "Garden", "General-Entertainment", "Gold-Bear", "Himajin", "Hooligan", "Horipro", "Hot-Bear", "Jumondo", "Majin", "Media-Bank", "Moon-Night-Lady", "Mu", "Natural-High", "Nihikime-no-dozeu", "nur", "Pashmina", "Poro", "Sesso-Esotico", "Shouten", "Studio-1", "Studio-Deen", "Suzuki-Mirano", "Toratepotto", "Union-Chooser", "White-Bear", "ZIZ", "Zyc" ];
-    const sortables = ["Uploads", "Views", "Likes", "Release", "Alphabetical"];
+    const createTagState = (items) => items.map(item => g(item, item.toLowerCase()));
+    const createBrandState = (items) => items.map(item => g(item, item));
+
+    const tags = ["3D", "Ahegao", "Anal", "Animation", "BDSM", "Big Tits", "Cosplay", "Creampie", "Dark Skin", "Elf", "Futanari", "Gender Bender", "Handjob", "Harem", "Incest", "Inflation", "Loli", "Maid", "Milf", "Mind Break", "Mind Control", "Monster", "NTR", "Nakadashi", "No Penetration", "Oppai", "POV", "Pregnant", "Rape", "Reverse Rape", "Rimjob", "Schoolgirl", "Shota", "Stockings", "Succubus", "Tentacles", "Threesome", "Toy", "Trap", "Tsundere", "Ugly Bastard", "Vanilla", "X-Ray", "Yaoi", "Yuri"];
+    const brands = ["37c-Binetsu", "Anime-Koubou-Ram", "Antechinus", "BOMB! CUTE! BOMB!", "Bootleg", "BreakBottle", "Bunnywalker", "Digital-Works", "EDGE", "First-Star", "Front-Line", "G-Collections", "Garden", "General-Entertainment", "Gold-Bear", "Himajin", "Hooligan", "Horipro", "Hot-Bear", "Jumondo", "Majin", "Media-Bank", "Moon-Night-Lady", "Mu", "Natural-High", "Nihikime-no-dozeu", "nur", "Pashmina", "Poro", "Sesso-Esotico", "Shouten", "Studio-1", "Studio-Deen", "Suzuki-Mirano", "Toratepotto", "Union-Chooser", "White-Bear", "ZIZ", "Zyc"];
 
     return [
+      { type_name: "GroupFilter", name: "Include Tags", state: createTagState(tags) },
+      { type_name: "GroupFilter", name: "Exclude Tags (Blacklist)", state: createTagState(tags) },
+      { type_name: "GroupFilter", name: "Brands", state: createBrandState(brands) },
       {
-        type_name: "GroupFilter",
-        name: "Tags",
-        state: formateState("CheckBox", tags),
+        type_name: "SelectFilter", name: "Tag Mode", state: 0,
+        values: [ f("And", "AND"), f("Or", "OR") ]
       },
       {
-        type_name: "GroupFilter",
-        name: "Brands",
-        state: formateState("CheckBox", brands),
+        type_name: "SelectFilter", name: "Sort by", state: 2, // Default to Likes
+        values: [
+            f("Uploads", "created_at_unix"),
+            f("Views", "views"),
+            f("Likes", "likes"),
+            f("Release", "released_at_unix"),
+            f("Alphabetical", "title_sortable")
+        ]
       },
       {
-        type_name: "SortFilter",
-        name: "Sort by",
-        state: { index: 2, ascending: false },
-        values: sortables
+        type_name: "SelectFilter", name: "Order", state: 1, // Default to Descending
+        values: [
+            f("Ascending", "asc"),
+            f("Descending", "desc")
+        ]
       }
     ];
   }
@@ -248,7 +258,7 @@ class DefaultExtension extends MProvider {
         key: "hanime_pref_quality",
         listPreference: {
           title: "Preferred Video Quality",
-          summary: "Select the quality to prioritize",
+          summary: "Select the quality to prioritize in the stream list",
           valueIndex: 0,
           entries: ["1080p", "720p", "480p", "360p"],
           entryValues: ["1080", "720", "480", "360"],
