@@ -179,18 +179,84 @@ class DefaultExtension extends MProvider {
     chapters.reverse();
     return { name, imageUrl, description, genre, status, link: url, chapters };
   }
-  
+
   async getVideoList(url) {
     const doc = await this.requestDoc(url);
+    const videoSource = this.getPreference("animeblkom_video_source") ?? "stream";
+
+    if (videoSource === "download") {
+        return await this._getDownloadLinks(doc, url);
+    } else {
+        return await this._getStreamLinks(doc, url);
+    }
+  }
+
+  async _getStreamLinks(doc, refererUrl) {
+    const videos = [];
+    const urlType = this.getPreference("animeblkom_stream_url_type") ?? "token";
+    const serverLinks = doc.select("div.servers div.item a");
+
+    for (const link of serverLinks) {
+        const embedUrl = link.attr("data-src");
+        const serverName = link.text.trim();
+        if (!embedUrl) continue;
+
+        try {
+            const res = await this.client.get(embedUrl, { "Referer": refererUrl });
+            const embedDoc = new Document(res.body);
+
+            embedDoc.select("video source").forEach(source => {
+                let videoUrl = source.attr("src");
+                const quality = source.attr("label");
+                if (!videoUrl || !quality) return;
+
+                if (urlType === "clean") {
+                    videoUrl = videoUrl.split('?')[0];
+                }
+                
+                videos.push({ 
+                    url: videoUrl, 
+                    originalUrl: videoUrl, 
+                    quality: `${serverName} - ${quality}`, 
+                    headers: { "Referer": embedUrl }
+                });
+            });
+        } catch (e) {
+            console.error(`Failed to fetch from server: ${serverName}`, e);
+        }
+    }
+    
+    if (videos.length === 0) { 
+        throw new Error("No stream links found. Try switching to 'Download' source in settings."); 
+    }
+    
+    const preferredQuality = this.getPreference("animeblkom_preferred_quality");
+    return videos.sort((a, b) => {
+        const aIsPreferred = a.quality.includes(preferredQuality);
+        const bIsPreferred = b.quality.includes(preferredQuality);
+        if (aIsPreferred && !bIsPreferred) return -1;
+        if (!aIsPreferred && bIsPreferred) return 1;
+
+        const aQualityNum = parseInt(a.quality.match(/\d+/)?.[0] || 0);
+        const bQualityNum = parseInt(b.quality.match(/\d+/)?.[0] || 0);
+        return bQualityNum - aQualityNum;
+    });
+  }
+
+  async _getDownloadLinks(doc, refererUrl) {
     const videos = [];
     doc.select("div.direct-download a[target='_blank']").forEach(link => {
         const videoUrl = link.getHref;
         const quality = link.text.trim();
         if (videoUrl) {
-            videos.push({ url: videoUrl, originalUrl: videoUrl, quality: quality, headers: { "Referer": url } });
+            videos.push({ url: videoUrl, originalUrl: videoUrl, quality: quality, headers: { "Referer": refererUrl } });
         }
     });
-    if (videos.length === 0) { throw new Error("No direct download links found."); }
+
+    if (videos.length === 0) { 
+        throw new Error("No direct download links found. Try switching to 'Stream' source in settings."); 
+    }
+    
     const preferredQuality = this.getPreference("animeblkom_preferred_quality");
     return videos.sort((a, b) => {
         const aIsPreferred = a.quality.includes(preferredQuality);
@@ -240,8 +306,7 @@ class DefaultExtension extends MProvider {
         ]},
         { type_name: "GroupFilter", name: "الاستديو", state: [
             g("8bit", "8bit"), g("A-1 Pictures", "a-1-pictures"), g("A.C.G.T.", "acgt"), g("AIC", "aic"), g("APPP", "appp"), g("AXsiZ", "axsiz"),
-            g("Actas", "actas"), g("Ajia-Do", "ajia-do"), g("Arms", "arms"), g("Artland", "artland"), g("Arvo Animation", "arvo-animation"),
-            g("Asahi Production", "asahi-production"), g("Asread", "asread"), g("Atelier Pontdarc", "atelier-pontdarc"), g("BUG FILMS", "bug-films"),
+            g("Actas", "actas"), g("Ajia-Do", "ajia-do"), g("Arms", "arms"), g("Artland", "artland"), g("Arvo Animation", "arvo-animation"), g("Asahi Production", "asahi-production"), g("Asread", "asread"), g("Atelier Pontdarc", "atelier-pontdarc"), g("BUG FILMS", "bug-films"),
             g("Bakken Record", "bakken-record"), g("Bandai Namco Pictures", "bandai-namco-pictures"), g("Bibury Animation Studios", "bibury-animation-studios"),
             g("Bones", "bones"), g("Brain's Base", "brains-base"), g("Bridge", "bridge"), g("C-Station", "c-station"), g("C2C", "c2c"),
             g("CloverWorks", "cloverworks"), g("CoMix Wave Films", "comix-wave-films"), g("Connect", "connect"), g("Creators in Pack", "creators-in-pack"),
@@ -280,11 +345,17 @@ class DefaultExtension extends MProvider {
               editTextPreference: { title: "Override Base URL", summary: "For temporary changes.", defaultValue: "https://animeblkom.net", dialogTitle: "Override Base URL", dialogMessage: "Default: https://animeblkom.net" }
           },
           {
+              key: "animeblkom_video_source",
+              listPreference: { title: "Video Source Type", summary: "Choose between streaming servers or direct downloads.", valueIndex: 0, entries: ["Stream", "Download"], entryValues: ["stream", "download"] }
+          },
+          {
               key: "animeblkom_preferred_quality",
               listPreference: { title: "Preferred Video Quality", summary: "Select your preferred quality. It will be prioritized.", valueIndex: 0, entries: ["1080p", "720p", "480p", "360p"], entryValues: ["1080p", "720p", "480p", "360p"] }
+          },
+          {
+              key: "animeblkom_stream_url_type",
+              listPreference: { title: "Stream URL Type (For Stream Source)", summary: "Clean URLs might not work after a while.", valueIndex: 0, entries: ["URL with Token", "Clean URL (No Token)"], entryValues: ["token", "clean"] }
           }
       ];
   }
 }
-
-
