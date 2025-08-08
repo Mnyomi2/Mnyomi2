@@ -1,13 +1,13 @@
 const mangayomiSources = [
   {
     "name": "Animeblkom",
-    "id": 987654321,
+    "id": 958063683,
     "baseUrl": "https://animeblkom.net",
     "lang": "ar",
     "typeSource": "single",
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=animeblkom.net",
     "itemType": 1,
-    "version": "1.5.1",
+    "version": "1.5.2",
     "hasCloudflare": true,
     "pkgPath": "anime/src/ar/animeblkom.js",
   },
@@ -286,4 +286,5 @@ class DefaultExtension extends MProvider {
       ];
   }
 }
+
 
