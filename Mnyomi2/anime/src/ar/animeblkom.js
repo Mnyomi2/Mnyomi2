@@ -7,7 +7,7 @@ const mangayomiSources = [
     "typeSource": "single",
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=animeblkom.net",
     "itemType": 1,
-    "version": "1.5.0",
+    "version": "1.5.1",
     "hasCloudflare": true,
     "pkgPath": "anime/src/ar/animeblkom.js",
   },
@@ -286,3 +286,4 @@ class DefaultExtension extends MProvider {
       ];
   }
 }
+
