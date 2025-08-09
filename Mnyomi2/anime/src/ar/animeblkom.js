@@ -24,11 +24,18 @@ class DefaultExtension extends MProvider {
   }
 
   getBaseUrl() {
-    return this.getPreference("animeblkom_base_url") ?? "https://animeblkom.net";
+    return this.getPreference("override_base_url") ?? "https://animeblkom.net";
   }
 
   getHeaders() {
-    return { "Referer": this.getBaseUrl() };
+    const useCustomUserAgent = this.getPreference("animeblkom_use_custom_user_agent") ?? false;
+    const headers = {
+        "Referer": this.getBaseUrl()
+    };
+    if (useCustomUserAgent) {
+        headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36";
+    }
+    return headers;
   }
 
   async requestDoc(url) {
@@ -193,7 +200,7 @@ class DefaultExtension extends MProvider {
 
   async _getStreamLinks(doc, refererUrl) {
     const videos = [];
-    const urlType = this.getPreference("animeblkom_stream_url_type") ?? "token";
+    const useToken = this.getPreference("animeblkom_use_url_with_token") ?? true;
     const serverLinks = doc.select("div.servers div.item a");
 
     for (const link of serverLinks) {
@@ -210,7 +217,7 @@ class DefaultExtension extends MProvider {
                 const quality = source.attr("label");
                 if (!videoUrl || !quality) return;
 
-                if (urlType === "clean") {
+                if (!useToken) {
                     videoUrl = videoUrl.split('?')[0];
                 }
                 
@@ -341,20 +348,50 @@ class DefaultExtension extends MProvider {
   getSourcePreferences() {
       return [
           {
-              key: "animeblkom_base_url",
-              editTextPreference: { title: "Override Base URL", summary: "For temporary changes.", defaultValue: "https://animeblkom.net", dialogTitle: "Override Base URL", dialogMessage: "Default: https://animeblkom.net" }
+              key: "override_base_url",
+              editTextPreference: {
+                  title: "Override Base URL",
+                  summary: "Use a different mirror/domain for the source",
+                  defaultValue: "https://animeblkom.net",
+                  dialogTitle: "Enter new Base URL",
+                  dialogMessage: "Default: https://animeblkom.net",
+              }
           },
           {
               key: "animeblkom_video_source",
-              listPreference: { title: "Video Source Type", summary: "Choose between streaming servers or direct downloads.", valueIndex: 0, entries: ["Stream", "Download"], entryValues: ["stream", "download"] }
+              listPreference: { 
+                  title: "Video Source Type", 
+                  summary: "Choose between streaming servers or direct downloads.", 
+                  valueIndex: 0, 
+                  entries: ["Stream", "Download"], 
+                  entryValues: ["stream", "download"] 
+              }
           },
           {
               key: "animeblkom_preferred_quality",
-              listPreference: { title: "Preferred Video Quality", summary: "Select your preferred quality. It will be prioritized.", valueIndex: 0, entries: ["1080p", "720p", "480p", "360p"], entryValues: ["1080p", "720p", "480p", "360p"] }
+              listPreference: { 
+                  title: "Preferred Video Quality", 
+                  summary: "Select your preferred quality. It will be prioritized.", 
+                  valueIndex: 0, 
+                  entries: ["1080p", "720p", "480p", "360p"], 
+                  entryValues: ["1080p", "720p", "480p", "360p"] 
+              }
           },
           {
-              key: "animeblkom_stream_url_type",
-              listPreference: { title: "Stream URL Type (For Stream Source)", summary: "Clean URLs might not work after a while.", valueIndex: 0, entries: ["URL with Token", "Clean URL (No Token)"], entryValues: ["token", "clean"] }
+              key: "animeblkom_use_custom_user_agent",
+              switchPreferenceCompat: {
+                  title: "Use Custom User-Agent",
+                  summary: "Mimic a real browser to help prevent getting blocked. (Default: Off)",
+                  value: false,
+              }
+          },
+          {
+              key: "animeblkom_use_url_with_token",
+              switchPreferenceCompat: {
+                  title: "Use URL with Token (For Stream Source)",
+                  summary: "Disable for clean URLs. Links may expire quickly if this is off.",
+                  value: true,
+              }
           }
       ];
   }
