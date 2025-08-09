@@ -348,16 +348,6 @@ class DefaultExtension extends MProvider {
   getSourcePreferences() {
       return [
           {
-              key: "override_base_url",
-              editTextPreference: {
-                  title: "Override Base URL",
-                  summary: "Use a different mirror/domain for the source",
-                  defaultValue: "https://animeblkom.net",
-                  dialogTitle: "Enter new Base URL",
-                  dialogMessage: "Default: https://animeblkom.net",
-              }
-          },
-          {
               key: "animeblkom_video_source",
               listPreference: { 
                   title: "Video Source Type", 
