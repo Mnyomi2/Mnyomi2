@@ -23,8 +23,13 @@ class DefaultExtension extends MProvider {
     return new SharedPreferences().get(key);
   }
 
+  // FIXED: Now correctly reads from the preference or falls back to the default.
   getBaseUrl() {
-    return this.getPreference("override_base_url") ?? "https://animeblkom.net";
+    const newUrl = this.getPreference("override_base_url");
+    if (newUrl && newUrl.length > 0) {
+        return newUrl;
+    }
+    return this.source.baseUrl;
   }
 
   getHeaders() {
@@ -345,8 +350,19 @@ class DefaultExtension extends MProvider {
     ];
   }
   
+  // FIXED: getSourcePreferences now includes the override option at the top.
   getSourcePreferences() {
       return [
+          {
+              key: "override_base_url",
+              editTextPreference: {
+                  title: "Override Base URL",
+                  summary: "For temporary changes..",
+                  value: this.source.baseUrl,
+                  dialogTitle: "Override Base URL",
+                  dialogMessage: `Default: ${this.source.baseUrl}`,
+              }
+          },
           {
               key: "animeblkom_video_source",
               listPreference: { 
@@ -378,8 +394,8 @@ class DefaultExtension extends MProvider {
           {
               key: "animeblkom_use_url_with_token",
               switchPreferenceCompat: {
-                  title: "Use URL with Token (For Stream Source)",
-                  summary: "Disable for clean URLs. Links may expire quickly if this is off.",
+                  title: "Stream URL Type (For Stream Source)",
+                  summary: "Clean URL (No Token) might expire quickly.",
                   value: true,
               }
           }
