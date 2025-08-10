@@ -1,16 +1,17 @@
 // --- METADATA ---
 const mangayomiSources = [{
-    "name": "Haho.moe",
-    "id": 5195842838023485,
+    "name": "Hahomoe",
+    "id": 690217538,
     "lang": "en",
     "baseUrl": "https://haho.moe",
-    "apiUrl": "",
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=haho.moe",
     "typeSource": "single",
     "itemType": 1,
-    "version": "1.0.1", // Version bump for new preference
+    "isNsfw": true,
+    "version": "1.0.1",
     "pkgPath": "anime/src/en/hahomoe.js"
 }];
+
 
 // --- CLASS ---
 class DefaultExtension extends MProvider {
