@@ -606,7 +606,7 @@
         "hasCloudflare": false,
         "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/en/hahomoe.js",
         "apiUrl": "",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "isManga": false,
         "itemType": 1,
         "isFullData": false,
@@ -792,4 +792,5 @@
         "notes": ""
     }
 ]
+
 
