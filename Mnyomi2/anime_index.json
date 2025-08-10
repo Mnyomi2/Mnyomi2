@@ -1,49 +1,5 @@
 [
     {
-        "name": "Animerco",
-        "id": 645698215,
-        "baseUrl": "https://vip.animerco.org",
-        "lang": "ar",
-        "typeSource": "single",
-        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=animerco.org",
-        "dateFormat": "",
-        "dateFormatLocale": "",
-        "isNsfw": false,
-        "hasCloudflare": false,
-        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/ar/animerco.js",
-        "apiUrl": "",
-        "version": "1.0.0",
-        "isManga": false,
-        "itemType": 1,
-        "isFullData": false,
-        "appMinVerReq": "0.5.0",
-        "additionalParams": "",
-        "sourceCodeLanguage": 1,
-        "notes": ""
-    },
-    {
-        "name": "HentaiMama",
-        "id": 9876543210,
-        "baseUrl": "https://hentaimama.io",
-        "lang": "en",
-        "typeSource": "single",
-        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=hentaimama.io",
-        "dateFormat": "",
-        "dateFormatLocale": "",
-        "isNsfw": false,
-        "hasCloudflare": false,
-        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/en/hentaimama.js",
-        "apiUrl": "",
-        "version": "1.0.0",
-        "isManga": false,
-        "itemType": 1,
-        "isFullData": false,
-        "appMinVerReq": "0.5.0",
-        "additionalParams": "",
-        "sourceCodeLanguage": 1,
-        "notes": ""
-    },
-    {
         "name": "Autoembed",
         "id": 536971840,
         "baseUrl": "https://watch.autoembed.cc",
@@ -660,6 +616,28 @@
         "notes": ""
     },
     {
+        "name": "HentaiMama",
+        "id": 9876543210,
+        "baseUrl": "https://hentaimama.io",
+        "lang": "en",
+        "typeSource": "single",
+        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=hentaimama.io",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": false,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/en/hentaimama.js",
+        "apiUrl": "",
+        "version": "1.0.0",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "HentaiPro",
         "id": 7531902468,
         "baseUrl": "https://hentai.pro",
@@ -814,7 +792,3 @@
         "notes": ""
     }
 ]
-
-
-
-
