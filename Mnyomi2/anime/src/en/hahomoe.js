@@ -11,16 +11,15 @@ const mangayomiSources = [{
     "pkgPath": "anime/src/en/hahomoe.js"
 }];
 
+
 // --- CLASS ---
 class DefaultExtension extends MProvider {
-    // The constructor is called when the class is initialized.
     constructor() {
-        super(); // Always call the parent constructor.
-        this.client = new Client(); // Initialize the HTTP client.
+        super();
+        this.client = new Client();
     }
 
     // --- PREFERENCES AND HEADERS ---
-
     getPreference(key) {
         return new SharedPreferences().get(key);
     }
@@ -39,7 +38,6 @@ class DefaultExtension extends MProvider {
     }
 
     // --- UTILITIES ---
-
     parseDate(dateStr) {
         if (!dateStr) return "";
         try {
@@ -51,7 +49,6 @@ class DefaultExtension extends MProvider {
     }
 
     // --- CORE METHODS ---
-
     async getPopular(page) {
         const url = `${this.getBaseUrl()}/anime?s=vdy-d&page=${page}`;
         const res = await this.client.get(url, this.getHeaders(url));
@@ -60,7 +57,7 @@ class DefaultExtension extends MProvider {
         const items = doc.select("ul.anime-loop.loop > li > a");
         for (const item of items) {
             const name = item.selectFirst("div.label > span, span.thumb-title").text;
-            const link = item.getHref + "?s=srt-d";
+            const link = item.getHref;
             const imageUrl = item.selectFirst("img")?.getSrc;
             list.push({ name, imageUrl, link });
         }
@@ -76,7 +73,7 @@ class DefaultExtension extends MProvider {
         const items = doc.select("ul.anime-loop.loop > li > a");
         for (const item of items) {
             const name = item.selectFirst("div.label > span, span.thumb-title").text;
-            const link = item.getHref + "?s=srt-d";
+            const link = item.getHref;
             const imageUrl = item.selectFirst("img")?.getSrc;
             list.push({ name, imageUrl, link });
         }
@@ -86,46 +83,31 @@ class DefaultExtension extends MProvider {
 
     async search(query, page, filters) {
         let sort = "rel-d";
-        let type = "";
-        let censorship = "";
-        let source = "";
-        let year = "";
-        const includedGenres = [];
-        const excludedGenres = [];
+        let httpQueryParts = [];
+        if (query) {
+            httpQueryParts.push(query.trim());
+        }
 
         for (const filter of filters) {
             if (filter.type_name === "SelectFilter") {
                 const selectedValue = filter.values[filter.state].value;
                 if (filter.name === "Sort By") {
                     sort = selectedValue;
-                } else if (filter.name === "Type") {
-                    type = selectedValue;
-                } else if (filter.name === "Censorship") {
-                    censorship = selectedValue;
-                } else if (filter.name === "Source") {
-                    source = selectedValue;
+                } else if (selectedValue) {
+                    const filterKey = filter.name.toLowerCase().replace(/\s+/g, "-");
+                    httpQueryParts.push(`${filterKey}:${selectedValue}`);
                 }
-            } else if (filter.type_name === "TextFilter" && filter.name === "Year") {
-                year = filter.state;
-            } else if (filter.type_name === "GroupFilter" && filter.name === "Genres") {
-                for (const genre of filter.state) {
-                    if (genre.state) includedGenres.push(genre.value);
-                }
-            } else if (filter.type_name === "GroupFilter" && filter.name === "Excluded Genres") {
-                for (const genre of filter.state) {
-                    if (genre.state) excludedGenres.push(genre.value);
+            } else if (filter.type_name === "GroupFilter") {
+                const filterName = filter.name.startsWith("Excluded") ? "-genre" : "genre";
+                for (const item of filter.state) {
+                    if (item.state) {
+                        httpQueryParts.push(`${filterName}:${item.value}`);
+                    }
                 }
             }
         }
 
-        let httpQuery = query.trim();
-        if (type) httpQuery += ` type:${type}`;
-        if (censorship) httpQuery += ` censorship:${censorship}`;
-        if (source) httpQuery += ` source:${source}`;
-        if (year) httpQuery += ` year:${year}`;
-        if (includedGenres.length > 0) httpQuery += includedGenres.map(g => ` genre:${g}`).join('');
-        if (excludedGenres.length > 0) httpQuery += excludedGenres.map(g => ` -genre:${g}`).join('');
-
+        const httpQuery = httpQueryParts.join(' ');
         const encodedQuery = encodeURIComponent(httpQuery);
         const url = `${this.getBaseUrl()}/anime?page=${page}&s=${sort}&q=${encodedQuery}`;
 
@@ -135,7 +117,7 @@ class DefaultExtension extends MProvider {
         const items = doc.select("ul.anime-loop.loop > li > a");
         for (const item of items) {
             const name = item.selectFirst("div.label > span, span.thumb-title").text;
-            const link = item.getHref + "?s=srt-d"; // Append sort param to detail view
+            const link = item.getHref;
             const imageUrl = item.selectFirst("img")?.getSrc;
             list.push({ name, imageUrl, link });
         }
@@ -143,67 +125,37 @@ class DefaultExtension extends MProvider {
         return { list, hasNextPage };
     }
 
-
-    /**
-     * Fetches the details for a specific anime/movie.
-     * @param {string} url The URL of the anime/movie.
-     * @returns {Object} A MediaDetail object.
-     */
     async getDetail(url) {
         const res = await this.client.get(url, this.getHeaders(url));
         const doc = new Document(res.body);
-
         const entry = doc.selectFirst("article.anime-entry");
-        if (!entry) throw new Error("Main content <article> not found. Website layout may have changed.");
-
+        if (!entry) throw new Error("Main content <article> not found.");
         const name = entry.selectFirst("header h1")?.text ?? "Unknown Title";
         const imageUrl = entry.selectFirst("img.cover-image.img-thumbnail")?.getSrc;
-
-        // --- Rich Description Builder ---
         const details = [];
         const mainInfo = entry.selectFirst("section.main-info");
         const addDetail = (label, value) => {
             if (value && value.trim()) details.push(`${label.padEnd(15, ' ')}\t${value.trim()}`);
         };
-
         const officialTitle = mainInfo?.select("li.official-title .value").map(el => el.text.replace(/\s+/g, ' ').trim()).join(' / ');
         addDetail("Japanese Title", officialTitle);
-        const synonym = mainInfo?.select("li.synonym .value").map(el => el.text.replace(/\s+/g, ' ').trim()).join(' / ');
-        addDetail("English Synonym", synonym);
         addDetail("Type", mainInfo?.selectFirst("li.type .value a")?.text);
-
         const statusText = mainInfo?.selectFirst("li.status .value a")?.text;
         addDetail("Status", statusText);
-
-        addDetail("Release Date", mainInfo?.selectFirst("li.release-date .value")?.text);
-        addDetail("Views", mainInfo?.selectFirst("li.views .value")?.text);
-        addDetail("Bookmark Count", entry.selectFirst("span.bkm_cnt")?.text);
-        addDetail("Rating", `${entry.selectFirst("span.rtg_avg")?.text} / 5.00`);
         addDetail("Content Rating", mainInfo?.selectFirst("li.content-rating .value a")?.text);
         addDetail("Censorship", mainInfo?.selectFirst("li.censorship .value a")?.text);
         addDetail("Source", mainInfo?.selectFirst("li.source .value a")?.text);
-        addDetail("Resolutions", mainInfo?.select("li.resolution .value a").map(e => e.text.trim()).join(' • '));
+        addDetail("Resolution", mainInfo?.select("li.resolution .value a").map(e => e.text.trim()).join(' • '));
         addDetail("Production", mainInfo?.select("li.production .value a").map(e => e.text.trim()).join(' & '));
-        addDetail("Group", mainInfo?.select("li.group .value a").map(e => e.text.trim()).join(' & '));
-        const audio = mainInfo?.select("li.audio a.flag-icon").map(e => e.attr("title")).join(' / ');
-        const subs = mainInfo?.select("li.subtitle a.flag-icon").map(e => e.attr("title")).join(' / ');
-        addDetail("Audio / Subs", `${audio} / ${subs}`);
-
         const synopsis = entry.selectFirst("section.entry-description div.card-body")?.text.trim() ?? "No description available.";
         const description = details.join('\n') + "\n\n" + synopsis;
-        // --- End Rich Description Builder ---
-
         const status = statusText?.toLowerCase().includes("ongoing") ? 0 : statusText?.toLowerCase().includes("completed") ? 1 : 5;
-        const genre = [];
-        mainInfo?.select("li.type .value a, li.content-rating .value a, li.censorship .value a").forEach(element => {
-            genre.push(element.text.trim());
-        });
+        const genre = mainInfo?.select("li.genre .value a").map(e => e.text.trim()) ?? [];
         const author = mainInfo?.select("li.production .value a").map(e => e.text.trim()).join(', ');
         const artist = mainInfo?.select("li.group .value a").map(e => e.text.trim()).join(', ');
-
         const chapters = [];
         for (const element of entry.select("ul.episode-loop > li > a")) {
-            const epNumStr = element.selectFirst("div.episode-number, div.episode-slug")?.text ?? "Episode";
+            const epNumStr = element.selectFirst("div.episode-number, div.episode-slug")?.text ?? "Ep";
             const epTitle = element.selectFirst("div.episode-label, div.episode-title")?.text.replace(/No Title/i, "").trim() ?? "";
             const epName = epTitle ? `${epNumStr}: ${epTitle}` : epNumStr;
             const epUrl = element.getHref;
@@ -211,7 +163,6 @@ class DefaultExtension extends MProvider {
             chapters.push({ name: epName, url: epUrl, dateUpload: this.parseDate(dateStr) });
         }
         chapters.reverse();
-
         return { name, imageUrl, description, link: url, status, genre, author, artist, chapters };
     }
 
@@ -220,11 +171,9 @@ class DefaultExtension extends MProvider {
         const doc = new Document(res.body);
         const iframeSrc = doc.selectFirst("iframe")?.getSrc;
         if (!iframeSrc) return [];
-
         const iframeHeaders = { ...this.getHeaders(iframeSrc), "Referer": url };
         const iframeRes = await this.client.get(iframeSrc, iframeHeaders);
         const iframeDoc = new Document(iframeRes.body);
-
         const streams = [];
         for (const source of iframeDoc.select("source")) {
             const streamUrl = source.attr("src");
@@ -237,105 +186,30 @@ class DefaultExtension extends MProvider {
     }
 
     // --- FILTERS AND PREFERENCES ---
-
     getFilterList() {
-        const sortValues = [
-            { name: "Popular Today", value: "vdy-d" },
-            { name: "Popular This Week", value: "vwk-d" },
-            { name: "Popular This Month", value: "vmt-d" },
-            { name: "Popular This Year", value: "vyr-d" },
-            { name: "All-Time Popular", value: "vtt-d" },
-            { name: "Latest Released", value: "rel-d" },
-            { name: "Last Added", value: "add-d" },
-            { name: "Highest Rated", value: "rtg-d" },
-            { name: "Title A-Z", value: "ttl-a" },
-            { name: "Title Z-A", value: "ttl-d" }
+        // --- Data extracted from website and Kotlin object ---
+        const sortValues = [ { name: "Latest Released", value: "rel-d" }, { name: "Last Added", value: "add-d" }, { name: "Highest Rated", value: "rtg-d" }, { name: "Most Popular", value: "vtt-d" }, { name: "Popular Today", value: "vdy-d" }, { name: "Popular This Week", value: "vwk-d" }, { name: "Popular This Month", value: "vmt-d" }, { name: "Popular This Year", value: "vyr-d" }, { name: "Title A-Z", value: "az-a" }, { name: "Title Z-A", value: "az-d" }, { name: "Earliest Released", value: "rel-a" }, { name: "First Added", value: "add-a" } ];
+        const typeValues = [ { name: "Any", value: "" }, { name: "OVA", value: "ova" }, { name: "Web", value: "web" }, { name: "Movie", value: "movie" }, { name: "TV Series", value: "tv-series" }, { name: "TV Special", value: "tv-special" }, { name: "Other", value: "other" } ];
+        const statusValues = [ { name: "Any", value: "" }, { name: "Ongoing", value: "ongoing" }, { name: "Completed", value: "completed" }, { name: "Stalled", value: "stalled" } ];
+        const censorshipValues = [ { name: "Any", value: "" }, { name: "Censored", value: "censored" }, { name: "Uncensored", value: "uncensored" } ];
+        const sourceValues = [ { name: "Any", value: "" }, { name: "Blu-ray", value: "bd" }, { name: "DVD", value: "dvd" }, { name: "Web", value: "web" }, { name: "TV", value: "tv" }, { name: "VHS", value: "vhs" }, { name: "VCD", value: "vcd" }, { name: "LD", value: "ld" } ];
+        const resolutionValues = [ { name: "Any", value: "" }, { name: "1080p", value: "1080p" }, { name: "720p", value: "720p" }, { name: "540p", value: "540p" }, { name: "480p", value: "480p" }, { name: "360p", value: "360p" } ];
+        const genres = [ "3D CG animation", "absurdist humour", "action", "action game", "adapted into Japanese movie", "adapted into JDrama", "adults are useless", "adventure", "age difference romance", "ahegao", "air force", "alcohol", "alien", "all-boys school", "all-girls school", "alternative past", "alternative present", "amnesia", "anal", "android", "angel", "BDSM", "bestiality", "bishoujo", "bishounen", "black humour", "blackmail", "bondage", "borderline porn", "cheating", "chikan", "comedy", "coming of age", "competition", "contemporary fantasy", "cosplaying", "countryside", "creampie", "crime", "cross-dressing", "cunnilingus", "cyberpunk", "cyborg", "daily life", "dark fantasy", "dark-skinned girl", "dementia", "demon", "detective", "drugs", "dungeon", "dystopia", "ecchi", "elf", "enema", "enjo-kousai", "episodic", "erotic game", "exhibitionism", "facesitting", "fantasy", "fellatio", "female protagonist", "femdom", "fetishes", "FFM threesome", "fingering", "fisting", "foot fetish", "footjob", "forbidden love", "foursome", "futanari", "game", "gang bang", "gang rape", "gender bender", "ghost", "giant insects", "gigantic breasts", "glasses", "glory hole", "gokkun", "golden shower", "gore", "groping", "group love", "gunfights", "guro", "gyaru", "harem", "high school", "historical", "horror", "housewives", "humiliation", "idol", "immortality", "impregnation", "incest", "infidelity", "isekai", "island", "jealousy", "kemonomimi", "kidnapping", "lactation", "loli", "love polygon", "magic", "magical girl", "maid", "male protagonist", "martial arts", "master-servant relationship", "masturbation", "mecha", "military", "MILF", "mind break", "mind control", "misunderstanding", "MMF threesome", "molestation", "monster", "monster girl", "mother-son incest", "murder", "music", "mystery", "netorare", "netori", "ninja", "nudity", "nun", "nurse", "office lady", "older female younger male", "onahole", "oral", "orgy", "original work", "otaku culture", "oyakodon", "panty theft", "parody", "pirate", "plot with porn", "police", "post-apocalyptic", "pregnant", "prison", "prostitution", "psychological", "public sex", "rape", "revenge", "reverse harem", "rimming", "romance", "samurai", "school", "school life", "science fiction", "sex toys", "shibari", "shota", "shoujo ai", "shounen ai", "sister-sister incest", "sixty-nine", "slavery", "sleeping sex", "slime", "small breasts", "soapland", "space", "spanking", "sports", "squirting", "stomach bulge", "succubus", "super power", "superhero", "supernatural", "survival", "suspense", "swimsuit", "swordplay", "teacher", "tentacles", "themes", "threesome", "thriller", "tomboy", "torture", "toys", "tragedy", "trap", "tsundere", "ugly bastard", "vampire", "vanilla", "video game", "violence", "virtual world", "visual novel", "voyeurism", "waitress", "watersports", "work", "wrestling", "yaoi", "yuri", "zombie" ];
+        
+        return [
+            { type_name: "SelectFilter", name: "Sort By", state: 0, values: sortValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "HeaderFilter", name: "Content Filters" },
+            { type_name: "SelectFilter", name: "Type", state: 0, values: typeValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "SelectFilter", name: "Status", state: 0, values: statusValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "SelectFilter", name: "Censorship", state: 0, values: censorshipValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "SelectFilter", name: "Source", state: 0, values: sourceValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "SelectFilter", name: "Resolution", state: 0, values: resolutionValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value })) },
+            { type_name: "SeparatorFilter" },
+            { type_name: "HeaderFilter", name: "Genre Filters" },
+            { type_name: "GroupFilter", name: "Included Genres", state: genres.map(g => ({ type_name: "CheckBox", name: g, value: g.toLowerCase().replace(/\s+/g, "-"), state: false })) },
+            { type_name: "SeparatorFilter" },
+            { type_name: "GroupFilter", name: "Excluded Genres", state: genres.map(g => ({ type_name: "CheckBox", name: g, value: g.toLowerCase().replace(/\s+/g, "-"), state: false })) }
         ];
-
-        const typeValues = [
-            { name: "Any", value: "" },
-            { name: "OVA", value: "ova" },
-            { name: "Web", value: "web" },
-            { name: "Movie", value: "movie" },
-            { name: "TV Series", value: "tv-series" },
-            { name: "TV Special", value: "tv-special" },
-            { name: "Other", value: "other" }
-        ];
-
-        const censorshipValues = [
-            { name: "Any", value: "" },
-            { name: "Censored", value: "censored" },
-            { name: "Uncensored", value: "uncensored" }
-        ];
-
-        const sourceValues = [
-            { name: "Any", value: "" },
-            { name: "Blu-ray", value: "bd" },
-            { name: "DVD", value: "dvd" },
-            { name: "Web", value: "web" },
-            { name: "TV", value: "tv" },
-            { name: "VHS", value: "vhs" }
-        ];
-
-        const genres = [
-            "Ahegao", "Action", "Adventure", "Alien", "Anal Sex", "Android",
-            "Angel", "BDSM", "Beastiality", "Big Breasts", "Blackmail",
-            "Bondage", "Comedy", "Cosplay", "Creampie", "Crossdressing", "Cunnilingus",
-            "Dark Skin", "Demon", "Dementia", "Ecchi", "Elf", "Exhibitionism",
-            "Fantasy", "Futanari", "Gangbang", "Gender Bender", "Ghost", "Glasses",
-            "Gore", "Group", "Gyaru", "Harem", "Horror", "Humiliation", "Idol", "Incest",
-            "Inflation", "Isekai", "Loli", "Magic", "Maid", "MILF", "Military",
-            "Mind Break", "Mind Control", "Monster", "Monster Girl", "Necomimi",
-            "Netorare", "Nurse", "Orgy", "Parody", "Police", "Pregnant",
-            "Prison", "Public Sex", "Rape", "Reverse Rape", "Romance", "School", "School Girl",
-            "Sci-Fi", "Shota", "Slime", "Space", "Sports", "Succubus", "Supernatural",
-            "Swimsuit", "Teacher", "Tentacles", "Threesome", "Tomboy", "Toys", "Trap",
-            "Tsundere", "Ugly Bastard", "Vampire", "Vanilla", "Virgin", "Vore", "Voyeurism",
-            "Watersports", "Yaoi", "Yuri"
-        ];
-
-        const genreValues = genres.map(g => g.toLowerCase().replace(/\s+/g, "-"));
-
-        return [{
-            type_name: "SelectFilter",
-            name: "Sort By",
-            state: 5, // Default to "Latest Released"
-            values: sortValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value }))
-        }, {
-            type_name: "HeaderFilter",
-            name: "Content Filters (applied via search query)"
-        }, {
-            type_name: "SelectFilter",
-            name: "Type",
-            state: 0,
-            values: typeValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value }))
-        }, {
-            type_name: "SelectFilter",
-            name: "Censorship",
-            state: 0,
-            values: censorshipValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value }))
-        }, {
-            type_name: "SelectFilter",
-            name: "Source",
-            state: 0,
-            values: sourceValues.map(v => ({ type_name: "SelectOption", name: v.name, value: v.value }))
-        }, {
-            type_name: "TextFilter",
-            name: "Year",
-            state: ""
-        }, {
-            type_name: "SeparatorFilter"
-        }, {
-            type_name: "GroupFilter",
-            name: "Genres",
-            state: genres.map((genre, i) => ({ type_name: "CheckBox", name: genre, value: genreValues[i], state: false }))
-        }, {
-            type_name: "SeparatorFilter"
-        }, {
-            type_name: "GroupFilter",
-            name: "Excluded Genres",
-            state: genres.map((genre, i) => ({ type_name: "CheckBox", name: genre, value: genreValues[i], state: false }))
-        }];
     }
 
     getSourcePreferences() {
@@ -343,8 +217,8 @@ class DefaultExtension extends MProvider {
             key: "preferred_quality",
             listPreference: {
                 title: "Preferred Video Quality",
-                summary: "Select the quality to be prioritized by the player. Requires app restart.",
-                valueIndex: 1, // Default to 720p
+                summary: "Select the quality to be prioritized. Requires app restart.",
+                valueIndex: 1,
                 entries: ["1080p", "720p", "480p", "360p", "Auto"],
                 entryValues: ["1080", "720", "480", "360", "auto"],
             }
