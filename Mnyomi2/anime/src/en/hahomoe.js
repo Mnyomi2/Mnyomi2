@@ -1,16 +1,16 @@
+// --- METADATA ---
 const mangayomiSources = [{
-    "name": "Hahomoe",
-    "id": 690217538,
+    "name": "Haho.moe",
+    "id": 5195842838023485,
     "lang": "en",
     "baseUrl": "https://haho.moe",
+    "apiUrl": "",
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=haho.moe",
     "typeSource": "single",
     "itemType": 1,
-    "isNsfw": true,
-    "version": "1.0.1",
+    "version": "1.0.1", // Version bump for new preference
     "pkgPath": "anime/src/en/hahomoe.js"
 }];
-
 
 // --- CLASS ---
 class DefaultExtension extends MProvider {
@@ -25,7 +25,7 @@ class DefaultExtension extends MProvider {
     }
 
     getBaseUrl() {
-        return this.source.baseUrl;
+        return this.getPreference("override_base_url") || this.source.baseUrl;
     }
 
     getHeaders(url) {
@@ -187,7 +187,6 @@ class DefaultExtension extends MProvider {
 
     // --- FILTERS AND PREFERENCES ---
     getFilterList() {
-        // --- Data extracted from website and Kotlin object ---
         const sortValues = [ { name: "Latest Released", value: "rel-d" }, { name: "Last Added", value: "add-d" }, { name: "Highest Rated", value: "rtg-d" }, { name: "Most Popular", value: "vtt-d" }, { name: "Popular Today", value: "vdy-d" }, { name: "Popular This Week", value: "vwk-d" }, { name: "Popular This Month", value: "vmt-d" }, { name: "Popular This Year", value: "vyr-d" }, { name: "Title A-Z", value: "az-a" }, { name: "Title Z-A", value: "az-d" }, { name: "Earliest Released", value: "rel-a" }, { name: "First Added", value: "add-a" } ];
         const typeValues = [ { name: "Any", value: "" }, { name: "OVA", value: "ova" }, { name: "Web", value: "web" }, { name: "Movie", value: "movie" }, { name: "TV Series", value: "tv-series" }, { name: "TV Special", value: "tv-special" }, { name: "Other", value: "other" } ];
         const statusValues = [ { name: "Any", value: "" }, { name: "Ongoing", value: "ongoing" }, { name: "Completed", value: "completed" }, { name: "Stalled", value: "stalled" } ];
@@ -213,15 +212,27 @@ class DefaultExtension extends MProvider {
     }
 
     getSourcePreferences() {
-        return [{
-            key: "preferred_quality",
-            listPreference: {
-                title: "Preferred Video Quality",
-                summary: "Select the quality to be prioritized. Requires app restart.",
-                valueIndex: 1,
-                entries: ["1080p", "720p", "480p", "360p", "Auto"],
-                entryValues: ["1080", "720", "480", "360", "auto"],
+        return [
+            {
+                key: "override_base_url",
+                editTextPreference: {
+                    title: "Override Base URL",
+                    summary: "Use a different mirror/domain for the source",
+                    value: this.source.baseUrl,
+                    dialogTitle: "Enter new Base URL",
+                    dialogMessage: "",
+                }
+            },
+            {
+                key: "preferred_quality",
+                listPreference: {
+                    title: "Preferred Video Quality",
+                    summary: "Select the quality to be prioritized. Requires app restart.",
+                    valueIndex: 0, // Default to 1080p
+                    entries: ["1080p", "720p", "480p", "360p", "Auto"],
+                    entryValues: ["1080", "720", "480", "360", "auto"],
+                }
             }
-        }];
+        ];
     }
 }
