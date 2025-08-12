@@ -151,7 +151,7 @@ class DefaultExtension extends MProvider {
                 let finalName = originalName;
 
                 // Try to parse the episode number from a title like "حلقة 1 : مسلسل..."
-                const match = originalName.match(/حلقة\s*(\d+)/);
+                const match = originalName.match(/\b(\d+)\s*[:\-]|\/|^(\d+)$/);
                 if (match && match[1]) {
                     // Format as "الحلقة : 1" (Episode : 1)
                     finalName = `الحلقة : ${match[1]}`;
