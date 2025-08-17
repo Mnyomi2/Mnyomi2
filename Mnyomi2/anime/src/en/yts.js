@@ -17,7 +17,10 @@ class DefaultExtension extends MProvider {
         this.apiBaseUrl = "https://yts.mx/api/v2";
     }
 
-    // Helper to parse the movie list from the API response
+    getPreference(key) {
+        return new SharedPreferences().get(key);
+    }
+
     _parseMovieList(resBody) {
         const data = JSON.parse(resBody).data;
         if (!data || !data.movies) {
@@ -26,7 +29,6 @@ class DefaultExtension extends MProvider {
 
         const list = data.movies.map(movie => ({
             name: movie.title_long,
-            // Use a link format that getDetail can parse for the movie ID
             link: `${this.source.baseUrl}/movies/id/${movie.id}`,
             imageUrl: movie.large_cover_image
         }));
@@ -36,13 +38,17 @@ class DefaultExtension extends MProvider {
     }
 
     async getPopular(page) {
-        const url = `${this.apiBaseUrl}/list_movies.json?page=${page}&sort_by=like_count&limit=20`;
+        const sortBy = this.getPreference("yts_popular_sort") || "like_count";
+        const minRating = this.getPreference("yts_min_rating") || "0";
+        const url = `${this.apiBaseUrl}/list_movies.json?page=${page}&sort_by=${sortBy}&limit=20&minimum_rating=${minRating}`;
         const res = await this.client.get(url);
         return this._parseMovieList(res.body);
     }
 
     async getLatestUpdates(page) {
-        const url = `${this.apiBaseUrl}/list_movies.json?page=${page}&sort_by=date_added&limit=20`;
+        const sortBy = this.getPreference("yts_latest_sort") || "date_added";
+        const minRating = this.getPreference("yts_min_rating") || "0";
+        const url = `${this.apiBaseUrl}/list_movies.json?page=${page}&sort_by=${sortBy}&limit=20&minimum_rating=${minRating}`;
         const res = await this.client.get(url);
         return this._parseMovieList(res.body);
     }
@@ -102,13 +108,16 @@ class DefaultExtension extends MProvider {
             description: description.trim(),
             link: url,
             chapters: [{
-                name: "Torrents",
-                url: url // Pass the same URL to getVideoList
+                name: "Download Links",
+                url: url
             }],
-            status: 0 // Completed
+            status: 0
         };
     }
 
+    // ====================================================================================
+    // UPDATED `getVideoList` TO ONLY USE .torrent DOWNLOAD LINKS
+    // ====================================================================================
     async getVideoList(url) {
         const movieId = url.split("/id/").pop();
         const apiUrl = `${this.apiBaseUrl}/movie_details.json?movie_id=${movieId}`;
@@ -119,26 +128,18 @@ class DefaultExtension extends MProvider {
             throw new Error("No torrents found for this movie.");
         }
 
-        const trackers = [
-            "udp://open.demonii.com:1337/announce", "udp://tracker.openbittorrent.com:80",
-            "udp://tracker.coppersurfer.tk:6969", "udp://glotorrents.pw:6969/announce",
-            "udp://tracker.opentrackr.org:1337/announce", "udp://torrent.gresille.org:80/announce",
-            "udp://p4p.arenabg.com:1337", "udp://tracker.leechers-paradise.org:6969"
-        ];
-        const encodedTrackers = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join("&");
-        const encodedTitle = encodeURIComponent(movie.title_long);
-
-        return movie.torrents.map(torrent => {
-            const magnetUrl = `magnet:?xt=urn:btih:${torrent.hash}&dn=${encodedTitle}&${encodedTrackers}`;
-            const quality = `${torrent.quality} (${torrent.type}) | Size: ${torrent.size} | S:${torrent.seeds}/P:${torrent.peers}`;
-
+        // Map the torrents array directly to video list items using the download URL.
+        const videoList = movie.torrents.map(torrent => {
+            const qualityLabel = `${torrent.quality} (${torrent.type}) | ${torrent.size} | S:${torrent.seeds}/P:${torrent.peers}`;
             return {
-                url: magnetUrl,
-                originalUrl: magnetUrl,
-                quality: quality,
-                headers: {}
+                url: torrent.url, // Direct download link for the .torrent file
+                originalUrl: torrent.url,
+                quality: qualityLabel,
             };
-        }).sort((a, b) => b.quality.localeCompare(a.quality)); // Sort by quality descending
+        });
+
+        // Sort by quality to show higher resolutions first.
+        return videoList.sort((a, b) => b.quality.localeCompare(a.quality));
     }
 
     getFilterList() {
@@ -161,21 +162,53 @@ class DefaultExtension extends MProvider {
         ];
         
         return [
+            { type_name: "SelectFilter", name: "Genre", state: 0, values: genres.map(g => ({ type_name: "SelectOption", name: g, value: g.toLowerCase() === 'all' ? '' : g })) },
+            { type_name: "SelectFilter", name: "Quality", state: 0, values: qualities.map(q => ({ type_name: "SelectOption", name: q, value: q.toLowerCase() === 'all' ? '' : q })) },
+            { type_name: "SelectFilter", name: "Minimum Rating", state: 0, values: ratings.map((r, i) => ({ type_name: "SelectOption", name: r, value: ratingValues[i] })) },
+            { type_name: "SortFilter", name: "Sort By", state: { index: 0, ascending: false }, values: sortOptions.map(s => ({ type_name: "SelectOption", name: s.name, value: s.value })) }
+        ];
+    }
+    
+    // ====================================================================================
+    // UPDATED `getSourcePreferences` TO REMOVE LINK TYPE OPTION
+    // ====================================================================================
+    getSourcePreferences() {
+        const sortEntries = ["Popularity (Likes)", "Date Added", "Rating", "Peer Count", "Title", "Year"];
+        const sortValues = ["like_count", "date_added", "rating", "peers", "title", "year"];
+        
+        const ratingEntries = ["Any", "9+", "8+", "7+", "6+", "5+", "4+", "3+", "2+", "1+"];
+        const ratingValues = ["0", "9", "8", "7", "6", "5", "4", "3", "2", "1"];
+
+        return [
             {
-                type_name: "SelectFilter", name: "Genre", state: 0,
-                values: genres.map(g => ({ type_name: "SelectOption", name: g, value: g.toLowerCase() === 'all' ? '' : g }))
+                key: "yts_popular_sort",
+                listPreference: {
+                    title: "Default 'Popular' Sort",
+                    summary: "Set the default sort order for the 'Popular' tab.",
+                    valueIndex: 0,
+                    entries: sortEntries,
+                    entryValues: sortValues
+                }
             },
             {
-                type_name: "SelectFilter", name: "Quality", state: 0,
-                values: qualities.map(q => ({ type_name: "SelectOption", name: q, value: q.toLowerCase() === 'all' ? '' : q }))
+                key: "yts_latest_sort",
+                listPreference: {
+                    title: "Default 'Latest' Sort",
+                    summary: "Set the default sort order for the 'Latest' tab.",
+                    valueIndex: 1,
+                    entries: sortEntries,
+                    entryValues: sortValues
+                }
             },
             {
-                type_name: "SelectFilter", name: "Minimum Rating", state: 0,
-                values: ratings.map((r, i) => ({ type_name: "SelectOption", name: r, value: ratingValues[i] }))
-            },
-            {
-                type_name: "SortFilter", name: "Sort By", state: { index: 0, ascending: false },
-                values: sortOptions.map(s => ({ type_name: "SelectOption", name: s.name, value: s.value }))
+                key: "yts_min_rating",
+                listPreference: {
+                    title: "Default Minimum Rating",
+                    summary: "Filter 'Popular' and 'Latest' tabs by a minimum IMDb rating.",
+                    valueIndex: 0,
+                    entries: ratingEntries,
+                    entryValues: ratingValues
+                }
             }
         ];
     }
