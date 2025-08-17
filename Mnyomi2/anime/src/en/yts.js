@@ -108,16 +108,13 @@ class DefaultExtension extends MProvider {
             description: description.trim(),
             link: url,
             chapters: [{
-                name: "Download Links",
+                name: "Stream / Download",
                 url: url
             }],
             status: 0
         };
     }
 
-    // ====================================================================================
-    // UPDATED `getVideoList` TO ONLY USE .torrent DOWNLOAD LINKS
-    // ====================================================================================
     async getVideoList(url) {
         const movieId = url.split("/id/").pop();
         const apiUrl = `${this.apiBaseUrl}/movie_details.json?movie_id=${movieId}`;
@@ -128,17 +125,39 @@ class DefaultExtension extends MProvider {
             throw new Error("No torrents found for this movie.");
         }
 
-        // Map the torrents array directly to video list items using the download URL.
-        const videoList = movie.torrents.map(torrent => {
-            const qualityLabel = `${torrent.quality} (${torrent.type}) | ${torrent.size} | S:${torrent.seeds}/P:${torrent.peers}`;
-            return {
-                url: torrent.url, // Direct download link for the .torrent file
-                originalUrl: torrent.url,
-                quality: qualityLabel,
-            };
-        });
+        const linkType = this.getPreference("yts_link_type") || "magnet";
+        const videoList = [];
 
-        // Sort by quality to show higher resolutions first.
+        const trackers = [
+            "udp://open.demonii.com:1337/announce", "udp://tracker.openbittrent.com:80",
+            "udp://tracker.coppersurfer.tk:6969", "udp://glotorrents.pw:6969/announce",
+            "udp://tracker.opentrackr.org:1337/announce", "udp://torrent.gresille.org:80/announce",
+            "udp://p4p.arenabg.com:1337", "udp://tracker.leechers-paradise.org:6969"
+        ];
+        const encodedTrackers = trackers.map(tr => `tr=${encodeURIComponent(tr)}`).join("&");
+        const encodedTitle = encodeURIComponent(movie.title_long);
+
+        for (const torrent of movie.torrents) {
+            const qualityLabel = `${torrent.quality} (${torrent.type}) | ${torrent.size} | S:${torrent.seeds}/P:${torrent.peers}`;
+            
+            if (linkType === 'magnet' || linkType === 'both') {
+                const magnetUrl = `magnet:?xt=urn:btih:${torrent.hash}&dn=${encodedTitle}&${encodedTrackers}`;
+                videoList.push({
+                    url: magnetUrl,
+                    originalUrl: magnetUrl,
+                    quality: `[Magnet] ${qualityLabel}`,
+                });
+            }
+
+            if (linkType === 'torrent' || linkType === 'both') {
+                videoList.push({
+                    url: torrent.url,
+                    originalUrl: torrent.url,
+                    quality: `[.torrent] ${qualityLabel}`,
+                });
+            }
+        }
+
         return videoList.sort((a, b) => b.quality.localeCompare(a.quality));
     }
 
@@ -169,17 +188,25 @@ class DefaultExtension extends MProvider {
         ];
     }
     
-    // ====================================================================================
-    // UPDATED `getSourcePreferences` TO REMOVE LINK TYPE OPTION
-    // ====================================================================================
     getSourcePreferences() {
         const sortEntries = ["Popularity (Likes)", "Date Added", "Rating", "Peer Count", "Title", "Year"];
         const sortValues = ["like_count", "date_added", "rating", "peers", "title", "year"];
         
+        // UPDATED: Expanded rating options to include all values from 0-9
         const ratingEntries = ["Any", "9+", "8+", "7+", "6+", "5+", "4+", "3+", "2+", "1+"];
         const ratingValues = ["0", "9", "8", "7", "6", "5", "4", "3", "2", "1"];
 
         return [
+            {
+                key: "yts_link_type",
+                listPreference: {
+                    title: "Video Link Type",
+                    summary: "Choose which type of links to show for streaming/downloading.",
+                    valueIndex: 0,
+                    entries: ["Magnet Links Only", ".torrent File Links Only", "Show Both"],
+                    entryValues: ["magnet", "torrent", "both"]
+                }
+            },
             {
                 key: "yts_popular_sort",
                 listPreference: {
