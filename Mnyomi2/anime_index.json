@@ -132,6 +132,28 @@
         "notes": ""
     },
     {
+        "name": "Animeiat",
+        "id": 1701240113941,
+        "baseUrl": "https://animeiat.co",
+        "lang": "ar",
+        "typeSource": "single",
+        "iconUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/icon/animeiat.png",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": false,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/ar/animeiat.js",
+        "apiUrl": "https://api.animeiat.co/v1",
+        "version": "1.0.0",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "Cimalek",
         "id": 5798993892749847,
         "baseUrl": "https://cimalek.art",
