@@ -193,7 +193,7 @@ class DefaultExtension extends MProvider {
         ];
         
 	const allTags = [
-            "tagLanguageAfrican","tagLanguageArgentinian","tagLanguageArmenian","tagLanguageBangladeshi","tagLanguageBelgian","tagLanguageBengali","tagLanguageBrazilian","tagLanguageBulgarian","tagLanguageCanadian","tagLanguageChilean","tagLanguageChinese","tagLanguageColombian","tagLanguageCzech","tagLanguageDanish","tagLanguageDutch","tagLanguageEcuadorian","tagLanguageFrench","tagLanguageGermanSpeaking","tagLanguageGreek","tagLanguageHindi","tagLanguageHungarian","tagLanguageIrish","tagLanguageItalian","tagLanguageJapanese","tagLanguageKenyan","tagLanguageMalagasy","tagLanguageMalayalam","tagLanguageMexican","tagLanguageNigerian","tagLanguageNordic","tagLanguagePeruvian","tagLanguagePolish","tagLanguagePortuguese","tagLanguagePortugueseSpeaking","tagLanguagePunjabi","tagLanguageRomanian","tagLanguageRussianSpeaking","tagLanguageSerbian","tagLanguageSlovakian","tagLanguageSouthAfrican","tagLanguageSpanish","tagLanguageSpanishSpeaking","tagLanguageSriLankan","tagLanguageSwiss","tagLanguageTaiwanese","tagLanguageTamil","tagLanguageThai","tagLanguageTurkish","tagLanguageUKModels","tagLanguageUSModels","tagLanguageUkrainian","tagLanguageVenezuelan","tagLanguageVietnamese","tagLanguageZimbabwean",
+            "autoTagNew","tagLanguageAfrican","tagLanguageArgentinian","tagLanguageArmenian","tagLanguageBangladeshi","tagLanguageBelgian","tagLanguageBengali","tagLanguageBrazilian","tagLanguageBulgarian","tagLanguageCanadian","tagLanguageChilean","tagLanguageChinese","tagLanguageColombian","tagLanguageCzech","tagLanguageDanish","tagLanguageDutch","tagLanguageEcuadorian","tagLanguageFrench","tagLanguageGermanSpeaking","tagLanguageGreek","tagLanguageHindi","tagLanguageHungarian","tagLanguageIrish","tagLanguageItalian","tagLanguageJapanese","tagLanguageKenyan","tagLanguageMalagasy","tagLanguageMalayalam","tagLanguageMexican","tagLanguageNigerian","tagLanguageNordic","tagLanguagePeruvian","tagLanguagePolish","tagLanguagePortuguese","tagLanguagePortugueseSpeaking","tagLanguagePunjabi","tagLanguageRomanian","tagLanguageRussianSpeaking","tagLanguageSerbian","tagLanguageSlovakian","tagLanguageSouthAfrican","tagLanguageSpanish","tagLanguageSpanishSpeaking","tagLanguageSriLankan","tagLanguageSwiss","tagLanguageTaiwanese","tagLanguageTamil","tagLanguageThai","tagLanguageTurkish","tagLanguageUKModels","tagLanguageUSModels","tagLanguageUkrainian","tagLanguageVenezuelan","tagLanguageVietnamese","tagLanguageZimbabwean",
             "ethnicityMiddleEastern","ethnicityAsian","ethnicityEbony","ethnicityIndian","ethnicityLatino","ethnicityMultiracial","ethnicityWhite",
             "ageTeen","ageYoung","ageMilf","ageMature","ageOld",
             "bodyTypePetite","bodyTypeAthletic","bodyTypeMedium","bodyTypeCurvy","bodyTypeBBW","bodyTypeBig",
@@ -202,7 +202,7 @@ class DefaultExtension extends MProvider {
        ];
         
         const formatName = (tag) => {
-            let name = tag.replace("tagLanguage", "").replace("ethnicity", "").replace("do", "").replace("specific", "").replace("sub", "");
+            let name = tag.replace("tagLanguage", "").replace("ethnicity", "").replace("do", "").replace("specific", "").replace("sub", "").replace("autoTag", "");
             name = name.replace(/([A-Z])/g, ' $1').trim();
             return name.charAt(0).toUpperCase() + name.slice(1);
         };
