@@ -308,6 +308,28 @@
         "notes": ""
     },
     {
+        "name": "Eporner",
+        "id": 8911658567,
+        "baseUrl": "https://www.eporner.com",
+        "lang": "en",
+        "typeSource": "single",
+        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=https://www.eporner.com",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": false,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/en/eporner.js",
+        "apiUrl": "",
+        "version": "1.0.0",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "Hahomoe",
         "id": 690217538,
         "baseUrl": "https://haho.moe",
