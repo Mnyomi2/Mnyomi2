@@ -1,13 +1,13 @@
 const mangayomiSources = [{
-    name: "EpornerApi",
-    id: 987654321,
-    lang: "en",
-    baseUrl: "https://www.eporner.com",
-    iconUrl: "https://www.google.com/s2/favicons?sz=256&domain=https://www.eporner.com",
-    typeSource: "single",
-    itemType: 1,
-    version: "2.0.0",
-    pkgPath: "anime/src/en/epornerapi.js"
+    "name": "EpornerApi",
+    "id": 987654321,
+    "lang": "en",
+    "baseUrl": "https://www.eporner.com",
+    "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=https://www.eporner.com",
+    "typeSource": "single",
+    "itemType": 1,
+    "version": "1.0.0",
+    "pkgPath": "anime/src/en/epornerapi.js"
 }];
 
 // Helper function to safely extract text from a DOM element
