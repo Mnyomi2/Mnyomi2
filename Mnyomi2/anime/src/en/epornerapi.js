@@ -7,7 +7,7 @@ const mangayomiSources = [{
     "typeSource": "single",
     "itemType": 1,
     "version": "1.0.0",
-    "pkgPath": "anime/src/en/hanime.js"
+    "pkgPath": "anime/src/en/epornerapi.js"
 }];
 
 
