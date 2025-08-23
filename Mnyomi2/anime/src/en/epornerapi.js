@@ -7,15 +7,14 @@ const mangayomiSources = [{
     "typeSource": "single",
     "itemType": 1,
     "version": "1.0.0",
-    "pkgPath": "anime/src/en/epornerapi.js"
+    "pkgPath": "anime/src/en/hanime.js"
 }];
 
-// Helper function to safely extract text from a DOM element
+
 function getText(element) {
     return element?.text?.trim() || '';
 }
 
-// Helper function to safely extract an attribute from a DOM element
 function getAttr(element, attr) {
     return element?.attr(attr)?.trim() || '';
 }
