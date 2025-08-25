@@ -7,7 +7,7 @@ const mangayomiSources = [{
     "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=https://animeonsen.xyz",
     "typeSource": "single",
     "itemType": 1,
-    "version": "1.3.3",
+    "version": "1.3.7",
     "pkgPath": "anime/src/all/animeonsen.js"
 }];
 
@@ -16,14 +16,14 @@ class DefaultExtension extends MProvider {
         super();
         this.client = new Client();
         this.apiUrl = "https://api.animeonsen.xyz/v4";
-        this.AO_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+        this.AO_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
         
         // This static token might expire. If the source stops working, it may need to be updated.
-        this.STATIC_BEARER_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQifQ.eyJpc3MiOiJodHRwczovL2F1dGguYW5pbWVvbnNlbi54eXovIiwiYXVkIjoiaHR0cHM6Ly9hcGkuYW5pbWVvbnNlbi54eXoiLCJpYXQiOjE3NTU0NTgzOTIsImV4cCI6MTc1NjA2MzE5Miwic3ViIjoiMDZkMjJiOTYtNjNlNy00NmE5LTgwZmMtZGM0NDFkNDFjMDM4LmNsaWVudCIsImF6cCI6IjA2ZDIyYjk2LTYzZTctNDZhOS04MGZjLWRjNDQxZDQxYzAzOCIsImd0eSI6ImNsaWVudF9jcmVkZW50aWFscyJ9.mjnUcC4AWhmIcdLsAjOEs4_BnvaYwGevp3uGN-BNrWnFlWW3csvchnYfIZYSM2WsUG690EtI3URWBLtOVCrGlRNHlRv50Jhc_-il2phCOOyZCIjqUWVU0hD9myIF-KycJo_UD9ETi3agXw7AlR_BeOmMmtug2_jpCcAUuFAGbvCsOo32DJVs2eAhVw27tudLvq-UBtA6OLY9jpSKmkgEr8LTcJY7gZ2s5Zr0pAGNicseOGwSpb1aWJ1bMpVCkbmYH1OEYrgN1P9BvaZq5ct9vaDIAqw7P5Dqh4wD_ObAJ5Dt-pL84GXI-W6mHyOZMgaqNt46OyCxK8Ue2n5RgQdHBw";
+        this.STATIC_BEARER_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQifQ.eyJpc3MiOiJodHRwczovL2F1dGguYW5pbWVvbnNlbi54eXovIiwiYXVkIjoiaHR0cHM6Ly9hcGkuYW5pbWVvbnNlbi54eXoiLCJpYXQiOjE3NTYxNDY4NTEsImV4cCI6MTc1Njc1MTY1MSwic3ViIjoiMDZkMjJiOTYtNjNlNy00NmE5LTgwZmMtZGM0NDFkNDFjMDM4LmNsaWVudCIsImF6cCI6IjA2ZDIyYjk2LTYzZTctNDZhOS04MGZjLWRjNDQxZDQxYzAzOCIsImd0eSI6ImNsaWVudF9jcmVkZW50aWFscyJ9.VqwRO-FVx6R7qF6l-ZpJqXK45nZJ5ZC1rBDwbZTopEW8pewszwF5QV5RnlxoQVLyVM8DI3jG68w3dq9zgGFSKrAsCR5b_P2Tq8HOUEYxAl5qCTolwDUKQFFBENHeSV7YziXrfpXI-pfHA7Kk32TDP4XzWoCqJqhqQc4fRViu_SUCzcEmBq403Bnll2c_b76ukRa71Mgj0jZsviOy8qlR-bni0N-sHp9STLSHM9vmp7_er4m5p6RzO7DIc0Ax_W_fDu-sxdhpg2XXfGAJ6naFg-TZq0BcFgnb7PqrYbtOy46ehMQS9VdCYJa9rj6JnDPncXtU5rciiLSptaOXvnhEgg";
     }
 
     get supportsLatest() {
-        return false;
+        return true;
     }
 
     getPreference(key) {
@@ -59,18 +59,34 @@ class DefaultExtension extends MProvider {
         const res = await this.client.get(url, this.getHeaders(url));
         const data = JSON.parse(res.body);
 
-        const list = data.content.map(item => ({
+        const items = data?.content || [];
+        const list = items.map(item => ({
             name: item.content_title || item.content_title_en,
             link: item.content_id,
-            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}`
+            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp` // FIX: Added .webp
         }));
 
-        const hasNextPage = data.cursor.next && data.cursor.next[0] === true;
+        const hasNextPage = data?.cursor?.next?.[0] === true;
         return { list, hasNextPage };
     }
 
     async getLatestUpdates(page) {
-        throw new Error("This source does not support latest updates.");
+        if (page > 1) {
+            return { list: [], hasNextPage: false };
+        }
+
+        const url = `${this.apiUrl}/content/index/recent/spotlight`;
+        const res = await this.client.get(url, this.getHeaders(url));
+        const data = JSON.parse(res.body);
+        
+        const items = Array.isArray(data) ? data : [];
+        const list = items.map(item => ({
+            name: item.content_title || item.content_title_en,
+            link: item.content_id,
+            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp` // FIX: Added .webp
+        }));
+        
+        return { list, hasNextPage: false };
     }
 
     async search(query, page, filters) {
@@ -82,10 +98,11 @@ class DefaultExtension extends MProvider {
         const res = await this.client.get(url, this.getHeaders(url));
         const data = JSON.parse(res.body);
 
-        const list = data.result.map(item => ({
+        const items = data?.result || [];
+        const list = items.map(item => ({
             name: item.content_title || item.content_title_en,
             link: item.content_id,
-            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}`
+            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp` // FIX: Added .webp
         }));
         
         return { list, hasNextPage: false };
@@ -97,7 +114,7 @@ class DefaultExtension extends MProvider {
         const details = JSON.parse(detailRes.body);
 
         const name = details.content_title || details.content_title_en;
-        const imageUrl = `${this.apiUrl}/image/210x300/${details.content_id}`;
+        const imageUrl = `${this.apiUrl}/image/210x300/${details.content_id}.webp`; // FIX: Added .webp
         const link = `${this.getBaseUrl()}/details/${details.content_id}`;
         const description = details.mal_data?.synopsis || null;
         const author = details.mal_data?.studios?.map(s => s.name).join(', ') || null;
@@ -142,11 +159,10 @@ class DefaultExtension extends MProvider {
             langPrefix: langPrefix
         }));
         
-        // Simplified sorting: Prioritize English ('en-US') if it exists.
         subtitles.sort((a, b) => {
-            if (a.langPrefix === 'en-US' && b.langPrefix !== 'en-US') return -1;
-            if (b.langPrefix === 'en-US' && a.langPrefix !== 'en-US') return 1;
-            return 0; // Keep original order for other languages
+            if (a.langPrefix === 'en-US') return -1;
+            if (b.langPrefix === 'en-US') return 1;
+            return 0;
         });
 
         const defaultVideo = {
