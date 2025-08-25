@@ -265,7 +265,7 @@ class DefaultExtension extends MProvider {
             switchPreferenceCompat: {
                 title: "Enable 'Latest' Tab",
                 summary: "Toggles the visibility of the 'Latest' tab.",
-                value: true,
+                value: false,
             }
         }, {
             key: "bearer_token",
@@ -290,7 +290,7 @@ class DefaultExtension extends MProvider {
             switchPreferenceCompat: {
                 title: "Enable Stream Quality Extraction",
                 summary: "If a stream provides multiple qualities, this will list them. (e.g. 1080p, 720p)",
-                value: true,
+                value: false,
             }
         }];
     }
