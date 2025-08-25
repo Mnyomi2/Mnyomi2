@@ -19,7 +19,7 @@ class DefaultExtension extends MProvider {
         this.apiUrl = "https://api.animeonsen.xyz/v4";
         this.AO_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0";
         
-        // This static token might expire. If the source stops working, it may need to be updated.
+        // This static token is a fallback. The primary token is now managed in preferences.
         this.STATIC_BEARER_TOKEN = "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRlZmF1bHQifQ.eyJpc3MiOiJodHRwczovL2F1dGguYW5pbWVvbnNlbi54eXovIiwiYXVkIjoiaHR0cHM6Ly9hcGkuYW5pbWVvbnNlbi54eXoiLCJpYXQiOjE3NTYxNTUyMjksImV4cCI6MTc1Njc2MDAyOSwic3ViIjoiMDZkMjJiOTYtNjNlNy00NmE5LTgwZmMtZGM0NDFkNDFjMDM4LmNsaWVudCIsImF6cCI6IjA2ZDIyYjk2LTYzZTctNDZhOS04MGZjLWRjNDQxZDQxYzAzOCIsImd0eSI6ImNsaWVudF9jcmVkZW50aWFscyJ9.q8sO_RW-u7EX7TTLJoNzVVB02br8DgZJrX4buZ2hAvRnSXOwHYSzqv3uO98bBI-3To1SdpkLSsmlyBj30a-9EqaOxcZ015W3WiAGf8_3_Qw2jHnX2G_OQNy_nEV7YR5LA4FqBgGKTaknKz-Xhq9IGwJf9p6uIQ734U9P9WXX7Bz-Z23l9CbK27MPt_6nz8oAk0R9pxKpe9jtYh45DnBD8MpCy1WqC7zOh_Y-tjLaetWYEA4xr6Upy0rlxnAgENeUmHe4HPfIS5ggy4LouXCs94xlGL8SjoUNTbontMidwHARUR96mz_4LhX8NvCqYq2jrC5VlJr2LzUIpiR0KJO18A";
     }
 
@@ -36,6 +36,10 @@ class DefaultExtension extends MProvider {
     }
 
     getHeaders(url) {
+        // Allow user to override the token via preferences for easier maintenance.
+        const userToken = this.getPreference("bearer_token");
+        const token = userToken ? `Bearer ${userToken.replace("Bearer ", "")}` : this.STATIC_BEARER_TOKEN;
+
         const headers = {
             "User-Agent": this.AO_USER_AGENT,
             "Referer": this.getBaseUrl(),
@@ -47,185 +51,165 @@ class DefaultExtension extends MProvider {
         };
 
         if (url.includes(this.apiUrl) && !url.includes("/image/")) {
-            headers["Authorization"] = this.STATIC_BEARER_TOKEN;
+            headers["Authorization"] = token;
         }
         return headers;
     }
 
+    // Centralized parser for anime lists from various endpoints.
+    _parseAnimeList(items = []) {
+        try {
+            return items.map(item => ({
+                name: item.content_title || item.content_title_en,
+                link: item.content_id,
+                imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp`
+            }));
+        } catch (e) {
+            return []; // Return empty list on parsing error
+        }
+    }
+
     async getPopular(page) {
-        const limit = 30;
-        const start = (page - 1) * limit;
-        const url = `${this.apiUrl}/content/index?start=${start}&limit=${limit}`;
-
-        const res = await this.client.get(url, this.getHeaders(url));
-        const data = JSON.parse(res.body);
-
-        const items = data?.content || [];
-        const list = items.map(item => ({
-            name: item.content_title || item.content_title_en,
-            link: item.content_id,
-            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp`
-        }));
-        const hasNextPage = data?.cursor?.next?.[0] === true;
-        return { list, hasNextPage };
+        try {
+            const limit = 30;
+            const start = (page - 1) * limit;
+            const url = `${this.apiUrl}/content/index?start=${start}&limit=${limit}`;
+            const res = await this.client.get(url, this.getHeaders(url));
+            const data = JSON.parse(res.body);
+            const list = this._parseAnimeList(data?.content);
+            const hasNextPage = data?.cursor?.next?.[0] === true;
+            return { list, hasNextPage };
+        } catch (e) {
+            throw new Error(`Failed to get popular anime. The API token may have expired. Error: ${e.message}`);
+        }
     }
 
     async getLatestUpdates(page) {
-        if (page > 1) {
-            return { list: [], hasNextPage: false };
+        if (page > 1) return { list: [], hasNextPage: false };
+        try {
+            const url = `${this.apiUrl}/content/index/recent/spotlight`;
+            const res = await this.client.get(url, this.getHeaders(url));
+            const data = JSON.parse(res.body);
+            const list = this._parseAnimeList(Array.isArray(data) ? data : []);
+            return { list, hasNextPage: false };
+        } catch (e) {
+            throw new Error(`Failed to get latest updates. The API token may have expired. Error: ${e.message}`);
         }
-
-        const url = `${this.apiUrl}/content/index/recent/spotlight`;
-        const res = await this.client.get(url, this.getHeaders(url));
-        const data = JSON.parse(res.body);
-        
-        const items = Array.isArray(data) ? data : [];
-        const list = items.map(item => ({
-            name: item.content_title || item.content_title_en,
-            link: item.content_id,
-            imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp`
-        }));
-        
-        return { list, hasNextPage: false };
     }
 
     async search(query, page, filters) {
-        let genre = "";
-        const genreFilter = filters?.find(f => f.name === "Genre");
-        if (genreFilter && genreFilter.state > 0) {
-            genre = genreFilter.values[genreFilter.state].value;
-        }
+        try {
+            let genre = "";
+            const genreFilter = filters?.find(f => f.name === "Genre");
+            if (genreFilter && genreFilter.state > 0) {
+                genre = genreFilter.values[genreFilter.state].value;
+            }
 
-        if (query) {
-            if (page > 1) return { list: [], hasNextPage: false };
-            const url = `${this.apiUrl}/search/${encodeURIComponent(query)}`;
-            const res = await this.client.get(url, this.getHeaders(url));
-            const data = JSON.parse(res.body);
-            const items = data?.result || [];
-            const list = items.map(item => ({
-                name: item.content_title || item.content_title_en,
-                link: item.content_id,
-                imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp`
-            }));
-            return { list, hasNextPage: false };
-        }
+            // Route to the correct function based on user input
+            if (query) {
+                if (page > 1) return { list: [], hasNextPage: false };
+                const url = `${this.apiUrl}/search/${encodeURIComponent(query)}`;
+                const res = await this.client.get(url, this.getHeaders(url));
+                const data = JSON.parse(res.body);
+                const list = this._parseAnimeList(data?.result);
+                return { list, hasNextPage: false };
+            }
 
-        if (genre) {
-            const limit = 30;
-            const start = (page - 1) * limit;
-            const url = `${this.apiUrl}/content/index/genre/${genre}?start=${start}&limit=${limit}`;
-            const res = await this.client.get(url, this.getHeaders(url));
-            const data = JSON.parse(res.body);
-            // FIX: Genre endpoint returns a `result` array, not a `content` array.
-            const items = data?.result || [];
-            const list = items.map(item => ({
-                name: item.content_title || item.content_title_en,
-                link: item.content_id,
-                imageUrl: `${this.apiUrl}/image/210x300/${item.content_id}.webp`
-            }));
-            // FIX: Genre endpoint does not provide a cursor, so infer `hasNextPage`.
-            const hasNextPage = list.length === limit;
-            return { list, hasNextPage };
-        }
+            if (genre) {
+                const limit = 30;
+                const start = (page - 1) * limit;
+                const url = `${this.apiUrl}/content/index/genre/${genre}?start=${start}&limit=${limit}`;
+                const res = await this.client.get(url, this.getHeaders(url));
+                const data = JSON.parse(res.body);
+                const list = this._parseAnimeList(data?.result);
+                const hasNextPage = list.length === limit; // Genre endpoint doesn't give a cursor
+                return { list, hasNextPage };
+            }
 
-        return this.getPopular(page);
+            // Default to popular if no query or genre is selected
+            return this.getPopular(page);
+        } catch (e) {
+            throw new Error(`Search failed. The API token may have expired. Error: ${e.message}`);
+        }
     }
 
     async getDetail(url) {
-        const detailUrl = `${this.apiUrl}/content/${url}/extensive`;
-        const detailRes = await this.client.get(detailUrl, this.getHeaders(detailUrl));
-        const details = JSON.parse(detailRes.body);
+        try {
+            const detailUrl = `${this.apiUrl}/content/${url}/extensive`;
+            const detailRes = await this.client.get(detailUrl, this.getHeaders(detailUrl));
+            const details = JSON.parse(detailRes.body);
 
-        const name = details.content_title || details.content_title_en;
-        const imageUrl = `${this.apiUrl}/image/210x300/${details.content_id}.webp`;
-        const link = `${this.getBaseUrl()}/details/${details.content_id}`;
-        const description = details.mal_data?.synopsis || null;
-        const author = details.mal_data?.studios?.map(s => s.name).join(', ') || null;
-        const genre = details.mal_data?.genres?.map(g => g.name) || [];
-        
-        const statusText = details.mal_data?.status?.trim();
-        let status;
-        if (statusText === "finished_airing") {
-            status = 1;
-        } else if (statusText === "currently_airing") {
-            status = 0;
-        } else {
-            status = 5;
+            const episodesUrl = `${this.apiUrl}/content/${url}/episodes`;
+            const episodesRes = await this.client.get(episodesUrl, this.getHeaders(episodesUrl));
+            const episodesData = JSON.parse(episodesRes.body);
+
+            const name = details.content_title || details.content_title_en;
+            const imageUrl = `${this.apiUrl}/image/210x300/${details.content_id}.webp`;
+            const description = details.mal_data?.synopsis || null;
+            const author = details.mal_data?.studios?.map(s => s.name).join(', ') || null;
+            const genre = details.mal_data?.genres?.map(g => g.name) || [];
+            
+            const statusText = details.mal_data?.status?.trim();
+            let status;
+            if (statusText === "finished_airing") status = 1;
+            else if (statusText === "currently_airing") status = 0;
+            else status = 5;
+
+            const chapters = Object.entries(episodesData || {}).map(([epNum, item]) => ({
+                name: `Episode ${epNum}: ${item.contentTitle_episode_en || ""}`.trim(),
+                url: `${url}/video/${epNum}`,
+                episode: parseFloat(epNum)
+            })).sort((a, b) => b.episode - a.episode);
+
+            return { name, imageUrl, description, link: url, status, genre, author, chapters };
+        } catch (e) {
+            throw new Error(`Failed to get details. Error: ${e.message}`);
         }
-        
-        const episodesUrl = `${this.apiUrl}/content/${url}/episodes`;
-        const episodesRes = await this.client.get(episodesUrl, this.getHeaders(episodesUrl));
-        const episodesData = JSON.parse(episodesRes.body);
-
-        let chapters = Object.entries(episodesData).map(([epNum, item]) => ({
-            name: `Episode ${epNum}: ${item.contentTitle_episode_en}`,
-            url: `${url}/video/${epNum}`,
-            episode: parseFloat(epNum)
-        }));
-
-        chapters = chapters.sort((a, b) => b.episode - a.episode);
-
-        return { name, imageUrl, description, link, status, genre, author, chapters };
     }
 
     async getVideoList(url) {
-        const videoUrl = `${this.apiUrl}/content/${url}`;
-        const res = await this.client.get(videoUrl, this.getHeaders(videoUrl));
-        const videoData = JSON.parse(res.body);
-
-        const streamUrl = videoData.uri.stream;
-        const subtitleLangs = videoData.metadata.subtitles;
-
-        let subtitles = Object.entries(videoData.uri.subtitles).map(([langPrefix, subUrl]) => ({
-            file: subUrl,
-            label: subtitleLangs[langPrefix] || langPrefix,
-            langPrefix: langPrefix
-        }));
-        
-        subtitles.sort((a, b) => {
-            if (a.langPrefix === 'en-US') return -1;
-            if (b.langPrefix === 'en-US') return 1;
-            return 0;
-        });
-
-        const defaultVideo = {
-            url: streamUrl,
-            originalUrl: streamUrl,
-            quality: "Default (DASH)",
-            headers: this.getHeaders(streamUrl),
-            subtitles: subtitles
-        };
-
-        if (!this.getPreference("extract_qualities")) {
-            return [defaultVideo];
-        }
-
-        const finalVideos = [];
         try {
+            const videoUrl = `${this.apiUrl}/content/${url}`;
+            const res = await this.client.get(videoUrl, this.getHeaders(videoUrl));
+            const videoData = JSON.parse(res.body);
+
+            const streamUrl = videoData.uri.stream;
+            const subtitles = Object.entries(videoData.uri.subtitles || {}).map(([langPrefix, subUrl]) => ({
+                file: subUrl,
+                label: videoData.metadata.subtitles[langPrefix] || langPrefix,
+                langPrefix: langPrefix
+            })).sort((a, b) => (a.langPrefix === 'en-US' ? -1 : b.langPrefix === 'en-US' ? 1 : 0));
+
+            const defaultVideo = {
+                url: streamUrl,
+                originalUrl: streamUrl,
+                quality: "Default (DASH)",
+                headers: this.getHeaders(streamUrl),
+                subtitles: subtitles
+            };
+
+            if (!this.getPreference("extract_qualities")) {
+                return [defaultVideo];
+            }
+
             const manifestContent = (await this.client.get(streamUrl, this.getHeaders(streamUrl))).body;
+            const qualities = new Set();
             const regex = /<Representation.*?height="(\d+)"/g;
             let match;
-            const qualities = new Set();
-
             while ((match = regex.exec(manifestContent)) !== null) {
                 qualities.add(parseInt(match[1]));
             }
 
             if (qualities.size > 0) {
-                finalVideos.push(defaultVideo);
-                const sortedQualities = [...qualities].sort((a, b) => b - a);
-                sortedQualities.forEach(height => {
-                    finalVideos.push({
-                        ...defaultVideo,
-                        quality: `${height}p`
-                    });
+                const finalVideos = [defaultVideo];
+                [...qualities].sort((a, b) => b - a).forEach(height => {
+                    finalVideos.push({ ...defaultVideo, quality: `${height}p` });
                 });
                 return finalVideos;
-            } else {
-                return [defaultVideo];
             }
-        } catch (e) {
             return [defaultVideo];
+        } catch (e) {
+            throw new Error(`Failed to get video list. Error: ${e.message}`);
         }
     }
     
@@ -281,7 +265,16 @@ class DefaultExtension extends MProvider {
             switchPreferenceCompat: {
                 title: "Enable 'Latest' Tab",
                 summary: "Toggles the visibility of the 'Latest' tab.",
-                value: false,
+                value: true,
+            }
+        }, {
+            key: "bearer_token",
+            editTextPreference: {
+                title: "Custom Bearer Token",
+                summary: "If the source stops working, you can manually update the API token here.",
+                value: "",
+                dialogTitle: "Enter Bearer Token",
+                dialogMessage: "The token can be found by inspecting network traffic on the website. Paste the full token here (without the 'Bearer ' prefix).",
             }
         }, {
             key: "override_base_url",
@@ -297,7 +290,7 @@ class DefaultExtension extends MProvider {
             switchPreferenceCompat: {
                 title: "Enable Stream Quality Extraction",
                 summary: "If a stream provides multiple qualities, this will list them. (e.g. 1080p, 720p)",
-                value: false,
+                value: true,
             }
         }];
     }
