@@ -158,11 +158,23 @@ class DefaultExtension extends MProvider {
         const episodeElements = doc.select("div.loop-episode a");
         for (const element of episodeElements) {
             const epUrl = element.getHref.replace(this.source.baseUrl, "");
-            const epNum = epUrl.substringAfterLast("-").substringBeforeLast("/");
-            chapters.push({
-                name: `الحلقة : ${epNum}`,
-                url: epUrl
-            });
+            let epName = element.selectFirst("div.titlepisode")?.text;
+            
+            if (epName) {
+                epName = epName.trim();
+                // Find and extract the pattern "الحلقة XX"
+                const match = epName.match(/(الحلقة\s*\d+)/);
+                if (match) {
+                    // If a match is found (like "الحلقة 16"), use that.
+                    epName = match[1];
+                }
+                // If no match, the original full name is used as a fallback.
+                
+                chapters.push({
+                    name: epName,
+                    url: epUrl
+                });
+            }
         }
         chapters.reverse();
 
