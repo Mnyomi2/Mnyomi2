@@ -198,6 +198,28 @@
         "notes": ""
     },
     {
+        "name": "Anime4up V2",
+        "id": 8374956840,
+        "baseUrl": "https://ww.anime4up.rest",
+        "lang": "ar",
+        "typeSource": "single",
+        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=ww.anime4up.rest",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": false,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/ar/anime4upv2.js",
+        "apiUrl": "",
+        "version": "1.5.7",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "Animeblkom",
         "id": 958063683,
         "baseUrl": "https://animeblkom.net",
