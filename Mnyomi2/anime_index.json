@@ -374,6 +374,28 @@
         "notes": ""
     },
     {
+        "name": "Tuktukcinema",
+        "id": 645839201,
+        "baseUrl": "https://tuk.cam",
+        "lang": "ar",
+        "typeSource": "single",
+        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=https://tuk.cam",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": false,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/ar/tuktukcinema.js",
+        "apiUrl": "",
+        "version": "1.0.1",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "Cam4",
         "id": 42069420,
         "baseUrl": "https://www.cam4.com",
