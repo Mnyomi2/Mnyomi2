@@ -726,6 +726,28 @@
         "notes": ""
     },
     {
+        "name": "WatchHentai",
+        "id": 17195988188,
+        "baseUrl": "https://watchhentai.net",
+        "lang": "en",
+        "typeSource": "single",
+        "iconUrl": "https://www.google.com/s2/favicons?sz=256&domain=https://watchhentai.net",
+        "dateFormat": "",
+        "dateFormatLocale": "",
+        "isNsfw": true,
+        "hasCloudflare": false,
+        "sourceCodeUrl": "https://raw.githubusercontent.com/Mnyomi2/Mnyomi2/refs/heads/main/Mnyomi2/anime/src/en/watchhentai.js",
+        "apiUrl": "",
+        "version": "1.0.0",
+        "isManga": false,
+        "itemType": 1,
+        "isFullData": false,
+        "appMinVerReq": "0.5.0",
+        "additionalParams": "",
+        "sourceCodeLanguage": 1,
+        "notes": ""
+    },
+    {
         "name": "YesPornPlease",
         "id": 2510287492,
         "baseUrl": "https://yespornpleasexxx.com/",
