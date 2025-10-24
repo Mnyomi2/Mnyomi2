@@ -54,7 +54,6 @@ class DefaultExtension extends MProvider {
                 const name = linkElement.text.trim();
                 const link = linkElement.getHref.replace(/^https?:\/\/[^\/]+/, '');
                 
-                // Get the thumbnail URL directly from the 'data-image' attribute for faster loading.
                 const imageUrl = imageElement.attr('data-image');
                 
                 if (imageUrl) {
@@ -140,27 +139,58 @@ class DefaultExtension extends MProvider {
     async getDetail(url) {
         const res = await this.client.get(this.getBaseUrl() + url, this.getHeaders(this.getBaseUrl() + url));
         const doc = new Document(res.body);
-
-        const name = doc.selectFirst("h1.anime-details-title").text;
-        const imageUrl = doc.selectFirst("div.anime-thumbnail img.thumbnail").getSrc;
-        const description = doc.selectFirst("p.anime-story").text;
+    
+        const name = doc.selectFirst("h1.anime-details-title")?.text?.trim() ?? "";
+        const imageUrl = doc.selectFirst("div.anime-thumbnail img.thumbnail")?.getSrc ?? "";
+        const description = doc.selectFirst("p.anime-story")?.text?.trim() ?? "";
         const link = url;
-
         const statusText = doc.selectFirst("div.anime-info:contains(حالة الأنمي) a")?.text ?? '';
         const status = { "يعرض الان": 0, "مكتمل": 1 }[statusText] ?? 5;
-
         const genre = doc.select("ul.anime-genres > li > a").map(e => e.text);
+    
+        let chapters = [];
+        const firstItemLink = doc.selectFirst(".episodes-list-content .pinned-card a.badge.light-soft")?.getHref;
 
-        const chapters = [];
-        const episodeElements = doc.select("div.episodes-list-content div.pinned-card a.badge.light-soft");
-        for (const element of episodeElements) {
-            chapters.push({
-                name: element.text.trim(),
-                url: element.getHref.replace(/^https?:\/\/[^\/]+/, '')
+        if (firstItemLink && firstItemLink.includes("/anime/")) {
+            // Multi-season page: Link contains /anime/, indicating it's a season link.
+            const seasonElements = doc.select(".episodes-list-content .pinned-card");
+            
+            const seasonPromises = seasonElements.map(async (element) => {
+                const seasonLink = element.selectFirst("a");
+                const seasonName = element.selectFirst("div.info h3")?.text.trim();
+                if (!seasonLink || !seasonName) return [];
+    
+                const seasonUrl = seasonLink.getHref;
+                const seasonRes = await this.client.get(seasonUrl, this.getHeaders(seasonUrl));
+                const seasonDoc = new Document(seasonRes.body);
+    
+                const seasonEpisodes = [];
+                const episodeElements = seasonDoc.select("div.episodes-list-content div.pinned-card a.badge.light-soft");
+                for (const epElement of episodeElements) {
+                    const episodeName = epElement.text.trim();
+                    seasonEpisodes.push({
+                        name: `${seasonName} - ${episodeName}`,
+                        url: epElement.getHref.replace(/^https?:\/\/[^\/]+/, '')
+                    });
+                }
+                return seasonEpisodes.reverse(); // Chronological order for episodes within this season
             });
-        }
-        chapters.reverse();
+    
+            const seasonsEpisodes = await Promise.all(seasonPromises);
+            chapters = seasonsEpisodes.flat(); // Combine all seasons' episodes
 
+        } else if (firstItemLink && firstItemLink.includes("/episode/")) {
+            // Single-season page: Link contains /episode/, indicating it's an episode list.
+            const episodeElements = doc.select("div.episodes-list-content div.pinned-card a.badge.light-soft");
+            for (const element of episodeElements) {
+                chapters.push({
+                    name: element.text.trim(),
+                    url: element.getHref.replace(/^https?:\/\/[^\/]+/, '')
+                });
+            }
+            chapters.reverse(); // Chronological order for all episodes
+        }
+    
         return { name, imageUrl, description, link, status, genre, chapters };
     }
 
@@ -190,25 +220,34 @@ class DefaultExtension extends MProvider {
         const hosterSelection = this.getPreference("hoster_selection") || ["Dood", "Voe", "Mp4upload", "Okru"];
         const headers = this.getHeaders(this.getBaseUrl() + url);
 
-        const linkElements = doc.select('#episode-servers li a');
+        // Select each server item from the list.
+        const linkElements = doc.select('#episode-servers > li');
         for (const element of linkElements) {
             try {
-                let streamUrl = element.attr('data-ep-url');
-                const qualityText = element.text.trim();
-                const serverName = qualityText.split(' - ')[0];
+                // The video URL is in the 'data-watch' attribute of the <li> element.
+                let streamUrl = element.attr('data-watch');
+                if (!streamUrl) continue;
 
+                const qualityTextElement = element.selectFirst('a');
+                if (!qualityTextElement) continue;
+
+                // The server name and quality are inside the <a> tag.
+                const qualityText = qualityTextElement.text.trim();
+                const serverName = qualityText.split(' ')[0].toLowerCase();
+                
                 if (streamUrl.startsWith("//")) streamUrl = "https:" + streamUrl;
 
                 const numericQuality = this.getNumericQuality(qualityText);
                 const finalQualityString = `${serverName} - ${numericQuality}`;
 
-                if (serverName.includes("Mp4upload") && hosterSelection.includes("Mp4upload")) {
+                // Use case-insensitive matching for server names.
+                if (serverName.includes("mp4upload") && hosterSelection.includes("Mp4upload")) {
                     videos.push(...(await this.mp4uploadExtractor(streamUrl, finalQualityString)));
-                } else if (serverName.includes("Dood") && hosterSelection.includes("Dood")) {
+                } else if (serverName.includes("dood") && hosterSelection.includes("Dood")) {
                     videos.push({ url: streamUrl, quality: finalQualityString, headers });
-                } else if (serverName.includes("Ok.ru") && hosterSelection.includes("Okru")) {
+                } else if (serverName.includes("ok.ru") && hosterSelection.includes("Okru")) {
                     videos.push({ url: streamUrl, quality: finalQualityString, headers });
-                } else if (serverName.includes("Voe.sx") && hosterSelection.includes("Voe")) {
+                } else if (serverName.includes("voe") && hosterSelection.includes("Voe")) {
                     videos.push({ url: streamUrl, quality: finalQualityString, headers });
                 }
             } catch (e) { /* Ignore errors from single hoster */ }
@@ -234,7 +273,7 @@ class DefaultExtension extends MProvider {
         const sections = [
             { name: 'الكل', value: '' },
             { name: 'الانمي المترجم', value: getSlug('https://ww.anime4up.rest/anime-category/%d8%a7%d9%84%d8%a7%d9%86%d9%85%d9%8a-%d8%a7%d9%84%d9%85%d8%aa%d8%b1%d8%ac%d9%85/')},
-            { name: 'الانمي المدبلج', value: getSlug('https://ww.anime4up.rest/anime-category/%d8%a7%d9%84%d8%a7%d9%86%d9%85%d9%8a-%d8%a7%d9%84%d9%85%d8%af%d8%a8%d9%84%d8%ac/')}
+            { name: 'الانمي المدبلج', value: getSlug('https://ww.anime4up.rest/anime-category/%d8%a7%d9%84%d8%a7%d9%86%d9%85%d9%8a-%d8%a7%d9%84%d9%85%d8%af%d8%a8%d9%84%d8%ag/')}
         ].map(s => ({ type_name: "SelectOption", name: s.name, value: s.value }));
 
         const genres = [
@@ -309,7 +348,7 @@ class DefaultExtension extends MProvider {
             listPreference: {
                 title: "الجودة المفضلة",
                 summary: "اختر الجودة التي سيتم اختيارها تلقائيا",
-                valueIndex: 1,
+                valueIndex: 0,
                 entries: ["1080p", "720p", "480p", "360p"],
                 entryValues: ["1080", "720", "480", "360"],
             }
